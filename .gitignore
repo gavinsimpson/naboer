@@ -47,3 +47,12 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+## ignore
+CRAN-SUBMISSION
+/doc/
+/Meta/
+docs
+
+# Apple stuff
+.DS_Store

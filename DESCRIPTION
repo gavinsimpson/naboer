@@ -1,0 +1,26 @@
+Package: naboer
+Version: 0.0.1
+Title: Create neighbourhoods for 'mgcv''s neighbourhood cross validation (NCV) smoothness selection
+Authors@R: c(person(given = "Gavin L.", family = "Simpson",
+                    email = "ucfagls@gmail.com",
+                    role = c("aut", "cre", "cph"),
+		            comment = c(ORCID = "0000-0002-9084-8413")))
+Maintainer: Gavin L. Simpson <ucfagls@gmail.com>
+Depends:
+    R (>= 4.1.0)
+Imports:
+    dplyr (>= 1.2.0)
+Suggests:
+    mgcv,
+    testthat
+Description: Need to write a fuller description
+License: MIT + file LICENSE
+LazyData: true
+URL: https://gavinsimpson.github.io/naboer/
+BugReports: https://github.com/gavinsimpson/naboer/issues
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Encoding: UTF-8
+Language: en-GB
+VignetteBuilder: knitr
+Config/testthat/edition: 3
