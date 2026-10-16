@@ -56,3 +56,6 @@ docs
 
 # Apple stuff
 .DS_Store
+
+# Local coverage output
+/cobertura.xml

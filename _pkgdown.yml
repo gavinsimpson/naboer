@@ -1,0 +1,48 @@
+url: https://gavinsimpson.github.io/naboer/
+template:
+  bootstrap: 5
+development:
+  mode: auto
+reference:
+  - title: Neighbourhoods and windows
+    contents:
+      - neighbourhoods
+      - spatial_window
+      - temporal_window
+      - time_span
+      - phylogenetic_window
+      - buffer_folds
+  - title: Cross-validation strategies
+    contents:
+      - custom_folds
+      - loo_folds
+      - vfold_folds
+      - spatial_folds
+      - temporal_folds
+      - spatiotemporal_folds
+      - forecast_folds
+      - group_folds
+      - environmental_folds
+      - phylogenetic_folds
+  - title: Inspect and export
+    contents:
+      - fold_data
+      - assessment_indices
+      - as_tibble.naboer_folds
+      - summary.naboer_folds
+      - autoplot.naboer_folds
+      - as_nei
+      - validate_folds
+      - validate_nei
+      - as_rset
+  - title: Package
+    contents: naboer-package
+articles:
+  - title: Workflows
+    navbar: ~
+    contents:
+      - naboer
+      - temporal
+      - spatial
+      - ecological
+      - performance

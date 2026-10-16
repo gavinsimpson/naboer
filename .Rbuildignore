@@ -43,3 +43,7 @@
 ^paper.log
 ^paper_cache
 ^texput.log
+^benchmarks$
+^tools$
+^validation$
+^cobertura\.xml$

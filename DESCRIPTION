@@ -1,26 +1,53 @@
 Package: naboer
-Version: 0.0.1
-Title: Create neighbourhoods for 'mgcv''s neighbourhood cross validation (NCV) smoothness selection
+Version: 0.0.1.9000
+Title: Dependence-Aware Cross-Validation Neighbourhoods
 Authors@R: c(person(given = "Gavin L.", family = "Simpson",
                     email = "ucfagls@gmail.com",
                     role = c("aut", "cre", "cph"),
 		            comment = c(ORCID = "0000-0002-9084-8413")))
 Maintainer: Gavin L. Simpson <ucfagls@gmail.com>
 Depends:
-    R (>= 4.1.0)
+    R (>= 4.4.0)
 Imports:
-    dplyr (>= 1.2.0)
+    dplyr (>= 1.2.0),
+    rlang (>= 1.1.0),
+    tibble,
+    tidyselect,
+    vctrs
 Suggests:
-    mgcv,
-    testthat
-Description: Need to write a fuller description
+    ape,
+    bench,
+    clock,
+    covr,
+    cubble,
+    ggplot2,
+    knitr,
+    lobstr,
+    lwgeom,
+    mgcv (>= 1.9-4),
+    pkgdown,
+    profmem,
+    rmarkdown,
+    rsample,
+    sf,
+    testthat (>= 3.2.0),
+    tsibble,
+    units
+Description: Construct and inspect dependence-aware cross-validation designs
+    for spatial, temporal, spatiotemporal, hierarchical, environmental and
+    phylogenetic data. Compact neighbourhood representations distinguish
+    observations omitted during fitting from observations assessed, and export
+    the structures used by 'mgcv' for neighbourhood cross-validation smoothness
+    selection. Optional adapters support 'sf', 'tsibble', 'cubble' and 'rsample'.
 License: MIT + file LICENSE
-LazyData: true
 URL: https://gavinsimpson.github.io/naboer/
 BugReports: https://github.com/gavinsimpson/naboer/issues
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Encoding: UTF-8
 Language: en-GB
 VignetteBuilder: knitr
 Config/testthat/edition: 3
+Config/Needs/website: pkgdown
+Config/Needs/coverage: covr
+Config/Needs/development: devtools, roxygen2, styler
+Config/roxygen2/version: 8.1.1

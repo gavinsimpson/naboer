@@ -1,0 +1,93 @@
+---
+title: "Spatial and spatiotemporal data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Spatial and spatiotemporal data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library("naboer")
+available <- requireNamespace("sf", quietly = TRUE) &&
+  requireNamespace("units", quietly = TRUE)
+```
+
+Use `sf` geometry columns and physical distance units. Projected queries use
+indexed candidates with exact geometry-to-geometry distance checks. Geographic
+queries respect the current sf spherical/ellipsoidal engine. Constructors never
+change `sf_use_s2()`, repair invalid geometry or assume a missing CRS.
+
+```{r spatial, eval=available}
+sites <- sf::st_as_sf(
+  tibble::tibble(site = letters[1:6], east = c(0, 100, 500, 1000, 2000, 3000), north = 0),
+  coords = c("east", "north"), crs = 32632
+)
+f <- neighbourhoods(sites, spatial = spatial_window(units::set_units(200, "m")))
+tibble::as_tibble(f, folds = 1:3, membership = TRUE)
+```
+
+Square and hexagonal block widths are distinct from buffers. Custom polygon
+regions are also supported. A shared boundary belongs to the first region in
+deterministic region order. Overlapping region interiors require an explicit
+integer `assignment` column. Non-point observations retain their original
+geometry; block assignment uses the first intersecting block rather than
+silently substituting a centroid.
+
+```{r blocks, eval=available}
+blocks <- spatial_folds(sites, size = units::set_units(500, "m"))
+buffered <- buffer_folds(blocks, spatial = spatial_window(units::set_units(100, "m")))
+tibble::as_tibble(buffered)
+```
+
+Generated geographic grids use a local azimuthal equidistant projection. For
+large extents, select an appropriate explicit projected `grid_crs`. Physical
+distance radii remain separate from that grid representation.
+
+## Repeated station observations
+
+```{r joint, eval=available}
+observations <- sites[rep(seq_len(nrow(sites)), each = 10), ]
+observations$date <- rep(as.Date("2024-01-01") + 0:9, nrow(sites))
+joint <- neighbourhoods(
+  observations,
+  key = site, index = date,
+  spatial = spatial_window(units::set_units(200, "m")),
+  temporal = temporal_window(time_span(1, "days")),
+  combine = "intersection"
+)
+tibble::as_tibble(joint, folds = c(1, 15, 60))
+```
+
+Intersection omits observations close in both space and time. Union omits
+observations close in either dimension. These represent different assumptions
+about residual dependence. `.by` imposes hard independent-domain boundaries in
+either case; keys identify stations and need not imply independent residuals.
+For fixed stations, geometry relationships are reused across times. Moving
+locations use each observation's geometry.
+
+## Cubble
+
+Both nested spatial and long temporal cubbles are accepted. `fold_data()` gives
+one canonical row per temporal observation. Its `naboer_source` attribute maps
+canonical rows back to the nested spatial row and within-series row, or to the
+source long row. Actual spatial `sf` geometries are restored for temporal
+cubbles; polygon geometry is preserved.
+
+```{r cubble, eval=available && requireNamespace("cubble", quietly=TRUE)}
+values <- tibble::tibble(
+  site = rep(letters[1:6], each = 10),
+  date = rep(as.Date("2024-01-01") + 0:9, 6), value = seq_len(60)
+)
+cube <- cubble::make_cubble(spatial = sites, temporal = values, key = site, index = date)
+cube_folds <- neighbourhoods(cube,
+  spatial = spatial_window(units::set_units(200, "m")),
+  temporal = temporal_window(time_span(1, "days")), combine = "intersection"
+)
+head(fold_data(cube_folds))
+```
+
+Use `spatiotemporal_folds(mode = "crossed")` for joint block holdouts,
+`mode = "space"` for holding locations out across all times, and `mode = "time"`
+for holding periods out across stations.

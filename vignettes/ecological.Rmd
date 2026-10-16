@@ -1,0 +1,195 @@
+---
+title: "Ecological groups, environments and phylogeny"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Ecological groups, environments and phylogeny}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library("naboer")
+have_ape <- requireNamespace("ape", quietly = TRUE)
+have_rsample <- requireNamespace("rsample", quietly = TRUE)
+```
+
+Validation should reflect the ecological prediction task. Predicting another
+observation at a sampled station differs from predicting a new station, an
+unfamiliar environment or an unobserved taxon. Dependence buffers address the
+relationship between held-out and training observations; whole-group holdouts
+also change which observational units are available to the model.
+
+This article uses a small monitoring dataset with repeated observations from six
+stations in two networks. All examples preserve its original observation order.
+
+```{r}
+observations <- tibble::tibble(
+  observation = seq_len(24),
+  network = rep(c("north", "south"), each = 12),
+  station = rep(paste0("station", seq_len(6)), each = 4),
+  date = rep(as.Date("2025-05-01") + 0:3, 6),
+  temperature = rep(c(4, 6, 12, 14, 20, 22), each = 4),
+  moisture = rep(c(90, 85, 65, 60, 35, 30), each = 4),
+  habitat = rep(c("wet", "wet", "intermediate", "intermediate", "dry", "dry"), each = 4)
+)
+```
+
+## Whole stations and hierarchical groups
+
+Leave one station out to assess predictions at stations unavailable during
+fitting. Select all identifying levels when station labels are only unique
+within a network. The combination of the selected columns defines a group.
+
+```{r}
+new_station <- observations |>
+  group_folds(group = c(network, station), id = observation)
+tibble::as_tibble(new_station)
+assessment_indices(new_station, folds = 1)
+```
+
+For V-fold CV, whole groups can be allocated together. With `balance = TRUE`,
+allocation aims to balance observation counts rather than the number of groups.
+The local seed makes allocation reproducible and preserves the caller's random
+number state.
+
+```{r}
+station_vfold <- observations |>
+  group_folds(group = c(network, station), v = 3, balance = TRUE, seed = 21)
+tibble::as_tibble(station_vfold)
+```
+
+Use `.by = network` when networks define independent dependence domains. A
+constructor then treats a station in one network as distinct from a station
+with the same label in another. V-fold allocation may score groups from several
+domains in the same fold; it never splits a group. Choose `group = network` to
+hold out an entire network instead.
+
+## New environmental conditions
+
+Environmental folds hold out clusters of observations in selected predictor
+space. Numeric predictors are standardised by default before seeded k-means
+clustering. Here temperature and moisture have different scales, so
+standardisation gives both an equal role in the distance calculation.
+
+```{r}
+new_environment <- observations |>
+  environmental_folds(predictors = c(temperature, moisture), v = 3, seed = 22)
+tibble::as_tibble(new_environment)
+```
+
+Clustering uses the selected predictors, so its interpretation depends on that
+selection. Missing or nonfinite predictors cause an error. Predictors constant
+within a domain are reported and excluded; an entirely constant domain cannot
+be clustered. With `.by`, each domain is clustered separately.
+
+Existing scientific strata can be more useful than data-derived clusters.
+Supply `strata` instead of `predictors` to leave each stratum out. An optional
+`v` allocates whole strata to fewer folds.
+
+```{r}
+new_habitat <- observations |>
+  environmental_folds(strata = habitat)
+tibble::as_tibble(new_habitat)
+```
+
+Environmental holdouts may involve extrapolation. Their errors answer a different
+question from random V-fold errors, even when both use the same model and data.
+
+## Phylogenetic dependence and new taxa
+
+The following examples require the optional **ape** package. Their chunks run
+only when `requireNamespace("ape", quietly = TRUE)` succeeds. Install ape to
+execute the tree examples locally; the other examples do not need it.
+
+```{r phylogeny, eval=have_ape}
+tree <- ape::read.tree(
+  text = "((oak:1,beech:1):2,(pine:1,fir:1):2);"
+)
+taxon_data <- tibble::tibble(
+  observation = seq_len(24),
+  taxon = rep(c("oak", "beech", "pine", "fir"), each = 6),
+  response = seq_len(24)
+)
+
+near_taxa <- taxon_data |>
+  neighbourhoods(
+    phylogenetic = phylogenetic_window(tree, taxon, radius = 2),
+    id = observation
+  )
+tibble::as_tibble(near_taxa, folds = c(1, 13), membership = TRUE)
+```
+
+The radius uses branch-length units and includes its boundary. In this tree,
+oak and beech are two units apart, while oak and pine are six units apart.
+Each focal observation omits all observations of its own taxon and nearby taxa
+in its domain. Tree distances are calculated among unique observed taxa, then
+mapped to observation rows; replicated taxa do not enlarge the distance matrix.
+Unused tree tips are allowed, but every observed taxon must match a tip label.
+Every branch needs a finite, nonnegative length.
+
+For new-taxon prediction, complete-linkage clustering produces blocks of taxa.
+Choose either a number of clusters with `v`, or a distance threshold with
+`height`. Replicated observations of a taxon stay together.
+
+```{r phylogenetic-blocks, eval=have_ape}
+taxon_blocks <- taxon_data |>
+  phylogenetic_folds(tree, taxon, height = 2)
+tibble::as_tibble(taxon_blocks)
+```
+
+Alternatively, select scientifically meaningful clades explicitly. The tree
+must be rooted, and the selected nonoverlapping clades must cover every observed
+taxon. Supply complete descendant tip sets or tree-node numbers. Arbitrary tip
+sets that do not form a complete clade are rejected.
+
+```{r phylogenetic-clades, eval=have_ape}
+new_clade <- taxon_data |>
+  phylogenetic_folds(
+    tree, taxon,
+    clades = list(c("oak", "beech"), c("pine", "fir"))
+  )
+tibble::as_tibble(new_clade, membership = TRUE)
+```
+
+## Buffered resampling and rsample
+
+Start with a focal assessment design and add a one-day exclusion buffer within
+each station. This changes omission membership while retaining the assessment
+observations that contribute to the criterion. Buffers expand from assessment
+observations only; they do not expand recursively from other buffer rows.
+
+```{r buffered-design}
+buffered <- observations |>
+  loo_folds(id = observation) |>
+  buffer_folds(
+    temporal = temporal_window(time_span(1, "days")),
+    key = station, index = date, within = "key"
+  )
+tibble::as_tibble(buffered, folds = 2, membership = TRUE)
+analysis_indices(buffered, folds = 2)
+```
+
+The next chunk requires optional **rsample** and is skipped when it is unavailable.
+The exported manual resamples preserve analysis and assessment independently.
+Buffer-only observations belong to neither set. On import, omission is the
+complement of analysis, so those observations remain excluded.
+
+```{r rsample-roundtrip, eval=have_rsample}
+resamples <- as_rset(buffered)
+restored <- from_rset(resamples, id = observation)
+identical(assessment_indices(restored), assessment_indices(buffered))
+identical(omission_indices(restored), omission_indices(buffered))
+identical(analysis_indices(restored), analysis_indices(buffered))
+```
+
+Ordinary rsample V-fold and repeated assessment designs can be imported.
+Bootstrap analysis samples containing duplicated rows cannot be expressed by
+an omission set and are rejected. All splits must refer to identical data in
+the same order.
+
+Finally, export the design for mgcv with `as_nei(buffered)`, and fit against
+`fold_data(buffered)`. Construct folds after preparing complete modelling data
+and use `na.action = stats::na.fail` when fitting. A valid design still requires
+checking whether the NCV approximation is accurate for the intended model and
+omission size.
