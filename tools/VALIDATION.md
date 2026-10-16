@@ -53,5 +53,7 @@ Use `fit$gcv.ubre` for the fitted criterion in these comparisons: mgcv can updat
 
 Run the supplied GitHub OS/R matrix and minimal-install job, configure Pages and
 Codecov, verify public URLs and uploads, review scientific examples, update the
-version, and review CRAN submission metadata. See `tools/RELEASE.md`. No remote
-push, release tag, CRAN submission or deployment was performed locally.
+version, and review CRAN submission metadata. See `tools/RELEASE.md`. At the time
+of the local validation above, no remote push, release tag, CRAN submission or
+deployment had been performed. Subsequent workflow and deployment results are
+available in the repository's GitHub Actions history.

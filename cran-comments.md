@@ -24,5 +24,5 @@ temporal and fixed-station spatiotemporal benchmarks pass independent membership
 checks, including end-to-end packed export for the latter.
 
 Linux, Windows, R devel, oldrel and R 4.4 results must be recorded from GitHub
-Actions before submission. The workflows are provided but have not been run
-remotely from this working tree.
+Actions before submission. The local baseline above predates the remote runs;
+review the final results in the repository's GitHub Actions history.
