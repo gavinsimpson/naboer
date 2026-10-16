@@ -2,7 +2,7 @@ url: https://gavinsimpson.github.io/naboer/
 template:
   bootstrap: 5
 development:
-  mode: auto
+  mode: default
 reference:
   - title: Neighbourhoods and windows
     contents:
