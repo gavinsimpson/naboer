@@ -13,7 +13,7 @@ and `tools/VALIDATION.md` for evidence and validation scope.
 - [x] Review large-omission approximation against exact fixed-basis refits;
       distinguish fixture evidence from general accuracy/uncertainty guarantees.
 - [x] Full optional-dependency tests pass: 651 assertions, no warnings or skips.
-- [x] Coverage gates pass: 97.18% overall and 96.54% core.
+- [x] Coverage gates pass: 97.20% overall and 96.61% core.
 - [x] README examples, five vignettes, reference manual and pkgdown build.
 - [x] Million-row temporal and fixed-station space-time fixtures pass direct
       references; record hardware, runtime, output size, R heap and process peak
@@ -29,9 +29,18 @@ and `tools/VALIDATION.md` for evidence and validation scope.
 
 - [x] Baseline `92db241`: platform matrix, minimal job, OIDC Codecov uploads,
       pkgdown and actual GitHub Pages deployment all verified.
-- [ ] Repeat Linux/macOS/Windows, devel, oldrel and R4.4 checks for the reviewed
-      candidate; record workflow URLs.
-- [ ] Verify candidate minimal-dependency job, coverage gates, pkgdown and Pages.
+- [x] Reviewed candidate `617f710`: Linux/macOS/Windows release, Linux devel,
+      oldrel and R4.4 all passed in
+      [R-CMD-check 39008110486](https://github.com/gavinsimpson/naboer/actions/runs/39008110486).
+- [x] Candidate minimal-dependency job passed in the same run.
+- [x] [Coverage 39008110491](https://github.com/gavinsimpson/naboer/actions/runs/39008110491)
+      passed; Codecov fully processed the report: 97.20% overall, 96.61% core.
+- [x] [pkgdown 39008110499](https://github.com/gavinsimpson/naboer/actions/runs/39008110499)
+      and [Pages 39008233996](https://github.com/gavinsimpson/naboer/actions/runs/39008233996)
+      passed. Live version 0.1.0 and revised articles/API pages verified.
+
+Subsequent evidence-only edits affect files excluded by `.Rbuildignore`, not the
+validated package payload. Their push workflows are still monitored.
 
 Standard push CI uses `--no-manual` and omits the PDF manual; vignettes are
 built and checked. The minimal job intentionally excludes optional adapters

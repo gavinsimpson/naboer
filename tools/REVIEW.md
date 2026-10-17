@@ -67,7 +67,7 @@ against the full fixed-basis penalised normal equations.
 
 Run `Rscript benchmarks/approximation.R 120 tools/approximation-review.csv`.
 The committed CSV records all eight radii for each family, omitted fractions,
-convergence, criterion errors and maximum link-scale prediction discrepancy.
+convergence, criterion errors and maximum NCV link-scale prediction discrepancy.
 The seed is 20261017, basis size 10 and fixed smoothing parameter 0.2. All refits
 converged. The same full-data basis/penalty is retained; rebuilding smooths on
 each subset would compare different parameterisations.
@@ -75,7 +75,7 @@ each subset would compare different parameterisations.
 Gaussian NCV and QNCV relative criterion errors were at most 3.3e-13. Selected
 Poisson results are:
 
-| Radius | Maximum omitted fraction | NCV relative error | QNCV relative error | Maximum absolute link error |
+| Radius | Maximum omitted fraction | NCV relative error | QNCV relative error | Maximum NCV absolute link error |
 |---:|---:|---:|---:|---:|
 | 7 | 12.5% | 0.23% | 0.47% | 0.112 |
 | 15 | 25.8% | 6.04% | 15.10% | 0.272 |

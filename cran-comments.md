@@ -20,8 +20,8 @@ or incoming-check suppression was used.
 
 ## Other validation
 
-651 local assertions pass without warnings or skips. Coverage is 97.18% overall
-and 96.54% core. The reference site and articles build. Million-row temporal and
+651 local assertions pass without warnings or skips. Coverage is 97.20% overall
+and 96.61% core. The reference site and articles build. Million-row temporal and
 space-time benchmarks pass direct references; the latter includes packed export
 and operating-system peak-memory measurement. Weighted Gaussian tests check
 block assessments and repeated scoring. Large-omission approximation results
@@ -29,9 +29,12 @@ and scientific limits are documented in `tools/REVIEW.md`.
 
 ## Remote checks
 
-Pre-review implementation `92db241` passed release R checks on Linux, Windows
-and macOS, Linux devel/oldrel/R4.4, and the minimal-dependency job. Reviewed
-candidate runs will be recorded after pushing.
+Reviewed candidate `617f710` passed release R checks on Linux, Windows and macOS,
+Linux devel/oldrel/R4.4, and the minimal-dependency job:
+[R-CMD-check 39008110486](https://github.com/gavinsimpson/naboer/actions/runs/39008110486).
+Candidate CI coverage is 97.20% overall and 96.61% core; Codecov processed the
+upload. The pkgdown and actual Pages deployment workflows passed, and live
+version 0.1.0 was verified. Detailed URLs are in `tools/VALIDATION.md`.
 
 Standard remote checks use `--no-manual`, omitting the PDF manual; they build and
 check vignettes. The full local candidate check includes the manual. The minimal

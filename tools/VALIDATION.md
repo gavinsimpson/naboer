@@ -12,7 +12,7 @@ Candidate **0.1.0**. No release tag or CRAN submission has been made. See
 - `devtools::test()`: **651 assertions, 0 failures/warnings/skips**, with all
   optional integrations installed. Weighted Gaussian refits check block
   assessments, repeated scoring and large omissions independently.
-- `covr::package_coverage()` (covr 3.6.5): **97.18% overall**, **96.54% core**
+- `covr::package_coverage()` (covr 3.6.5): **97.20% overall**, **96.61% core**
   across folds/indices/nei/utils. `tools/coverage-gate.R` passes.
 - `R CMD build .`: all five vignettes built. Candidate tarball
   `naboer_0.1.0.tar.gz` has MD5 `76ba4b53f8e377e5293bc7e3e4d3d24f`.
@@ -25,6 +25,8 @@ Candidate **0.1.0**. No release tag or CRAN submission has been made. See
   Pandoc deprecation messages for `--mathml`/`--mathjax` did not prevent building;
   they are not R CMD check warnings. A representative manual page was visually
   inspected.
+- All README R examples were separately executed successfully against 0.1.0,
+  including the fitted GAM and combined spatial/temporal workflow.
 - Added R code/examples use quoted package names in `library()` calls.
 - `git diff --check`: clean.
 
@@ -84,9 +86,21 @@ minimal-dependency job. Codecov processed coverage, and the root site deployed:
 - [pkgdown](https://github.com/gavinsimpson/naboer/actions/runs/38979324237)
 - [Pages](https://github.com/gavinsimpson/naboer/actions/runs/38979553126)
 
-Candidate review changes require new remote runs; results will be recorded after
-pushing. Standard CI uses `--no-manual`, skipping the PDF manual, and builds and
-checks vignettes. The minimal job uses `_R_CHECK_FORCE_SUGGESTS_=false` and
-intentionally tests core/minimal contexts without optional adapters. The full
-release job is dispatch-only. The successful full local check above includes
-the manual and all optional integrations.
+Reviewed candidate `617f710e95582a4159abf69d55fcda0edefc5ddd` passed:
+
+- [R-CMD-check 39008110486](https://github.com/gavinsimpson/naboer/actions/runs/39008110486):
+  release R on Linux/macOS/Windows, Linux devel/oldrel/R4.4 and minimal job.
+- [Coverage 39008110491](https://github.com/gavinsimpson/naboer/actions/runs/39008110491):
+  covr 97.20% overall, 96.61% core; OIDC upload accepted and Codecov state complete
+  for the exact candidate SHA. Codecov's display truncates overall to 97.19%.
+- [pkgdown 39008110499](https://github.com/gavinsimpson/naboer/actions/runs/39008110499)
+  and [Pages 39008233996](https://github.com/gavinsimpson/naboer/actions/runs/39008233996):
+  successful. Live root site returns HTTP 200 and shows 0.1.0; updated temporal,
+  forecasting API, approximation and spatial guidance were checked.
+
+Standard CI uses `--no-manual`, skipping the PDF manual, and builds/checks
+vignettes. The minimal job uses `_R_CHECK_FORCE_SUGGESTS_=false` and intentionally
+tests core/minimal contexts without optional adapters. The full release job is
+dispatch-only and was not triggered. The successful full local candidate check
+includes the manual and all optional integrations. Subsequent evidence-only
+edits affect files excluded from the validated source package.
