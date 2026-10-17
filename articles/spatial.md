@@ -6,6 +6,14 @@ Geographic queries respect the current sf spherical/ellipsoidal engine.
 Constructors never change `sf_use_s2()`, repair invalid geometry or
 assume a missing CRS.
 
+Radius thresholds and block assignments use the stored coordinates. An
+`sf` precision attribute is retained in
+[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md)
+but does not implicitly round coordinates during construction. Round the
+coordinates explicitly beforehand if the intended design uses rounded
+locations. This also keeps indexed candidates consistent with exact
+geometry distances.
+
 ``` r
 
 sites <- sf::st_as_sf(
@@ -30,23 +38,43 @@ require an explicit integer `assignment` column. Non-point observations
 retain their original geometry; block assignment uses the first
 intersecting block rather than silently substituting a centroid.
 
+Use `origin = c(x, y)` to keep a grid anchored across datasets or
+subsets, including negative coordinates. Square boundaries pass through
+the anchor; a hexagonal cell is centred on it. Hexagonal `size` is the
+distance between opposite edges, not the side length. Shared-boundary
+ties use cells ordered south to north, then west to east. With the same
+explicit anchor, changing the data extent does not move the grid. The
+default anchor is calculated from each dataset’s extent.
+
+Grid creation checks its estimated allocation against
+`options(naboer.max_bytes)` (1 GiB by default) before allocating polygon
+cells. Increasing the block size or limiting the spatial extent can
+reduce the allocation.
+
 ``` r
 
 blocks <- spatial_folds(sites, size = units::set_units(500, "m"))
 buffered <- buffer_folds(blocks, spatial = spatial_window(units::set_units(100, "m")))
 tibble::as_tibble(buffered)
-#> # A tibble: 4 × 6
+#> # A tibble: 5 × 6
 #>   fold  n_assessment n_omission n_analysis n_buffer omitted_fraction
 #>   <chr>        <dbl>      <dbl>      <dbl>    <dbl>            <dbl>
-#> 1 1                3          3          3        0            0.5  
-#> 2 2                1          1          5        0            0.167
+#> 1 1                1          2          4        1            0.333
+#> 2 2                2          3          3        1            0.5  
 #> 3 3                1          1          5        0            0.167
 #> 4 4                1          1          5        0            0.167
+#> 5 5                1          1          5        0            0.167
 ```
 
 Generated geographic grids use a local azimuthal equidistant projection.
 For large extents, select an appropriate explicit projected `grid_crs`.
 Physical distance radii remain separate from that grid representation.
+Geographic extents spanning more than 180 degrees of longitude require
+an explicit projected `grid_crs`, so an automatic local projection
+cannot silently split an antimeridian study area. Geographic distance
+windows still work across the antimeridian. A projected grid width
+describes distances in that projection; it need not be the same surface
+distance everywhere over a large study area.
 
 ## Repeated station observations
 
@@ -86,7 +114,16 @@ gives one canonical row per temporal observation. Its `naboer_source`
 attribute maps canonical rows back to the nested spatial row and
 within-series row, or to the source long row. Actual spatial `sf`
 geometries are restored for temporal cubbles; polygon geometry is
-preserved.
+preserved. The active geometry is preserved even when the spatial
+component contains several `sfc` columns. Missing coordinates do not
+prevent a purely temporal design: these rows remain in
+[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md).
+Spatial constructors require complete, valid geometries and a CRS.
+
+Cubble 1.0.0 itself accepts one key column. For data naturally
+identified by several columns, ordinary `sf` objects or tibbles support
+composite `key` and `.by` selections directly, or a composite identifier
+can be created before constructing a cubble.
 
 ``` r
 

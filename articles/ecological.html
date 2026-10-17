@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">naboer</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -139,7 +139,10 @@ entire network instead.</p>
 predictor space. Numeric predictors are standardised by default before
 seeded k-means clustering. Here temperature and moisture have different
 scales, so standardisation gives both an equal role in the distance
-calculation.</p>
+calculation. Each cluster is held out as a whole, so fold sizes may
+differ. <code>balance</code> applies to the existing-strata workflow
+below; it does not impose balanced k-means clusters. With independent
+domains, <code>v</code> requests that many clusters per domain.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">new_environment</span> <span class="op">&lt;-</span> <span class="va">observations</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/environmental_folds.html">environmental_folds</a></span><span class="op">(</span>predictors <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">temperature</span>, <span class="va">moisture</span><span class="op">)</span>, v <span class="op">=</span> <span class="fl">3</span>, seed <span class="op">=</span> <span class="fl">22</span><span class="op">)</span></span>
@@ -171,7 +174,11 @@ strata to fewer folds.</p>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> 3                8          8         16        0            0.333</span></span></code></pre></div>
 <p>Environmental holdouts may involve extrapolation. Their errors answer
 a different question from random V-fold errors, even when both use the
-same model and data.</p>
+same model and data. Clustering does not automatically keep whole
+stations together: observations from one station can enter different
+folds if their predictors change over time. Use strata constant within
+the required observational units, or add dependence buffers, when those
+restrictions belong to the prediction task.</p>
 </div>
 <div class="section level2">
 <h2 id="phylogenetic-dependence-and-new-taxa">Phylogenetic dependence and new taxa<a class="anchor" aria-label="anchor" href="#phylogenetic-dependence-and-new-taxa"></a>
@@ -214,7 +221,10 @@ finite, nonnegative length.</p>
 <p>For new-taxon prediction, complete-linkage clustering produces blocks
 of taxa. Choose either a number of clusters with <code>v</code>, or a
 distance threshold with <code>height</code>. Replicated observations of
-a taxon stay together.</p>
+a taxon stay together. If <code>.by</code> defines independent domains,
+taxon holdouts apply separately within each domain; the same taxon may
+remain in training in another domain. Leave <code>.by</code> unspecified
+when the target is a taxon absent from the entire training dataset.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">taxon_blocks</span> <span class="op">&lt;-</span> <span class="va">taxon_data</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/phylogenetic_folds.html">phylogenetic_folds</a></span><span class="op">(</span><span class="va">tree</span>, <span class="va">taxon</span>, height <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
@@ -271,7 +281,14 @@ recursively from other buffer rows.</p>
 skipped when it is unavailable. The exported manual resamples preserve
 analysis and assessment independently. Buffer-only observations belong
 to neither set. On import, omission is the complement of analysis, so
-those observations remain excluded.</p>
+those observations remain excluded. The exported rset also saves series
+keys, temporal index, independent-domain columns and identifiers.
+<code><a href="../reference/as_rset.html">from_rset()</a></code> restores them, so subsequent buffers respect
+the original domain boundaries. For external resamples supply
+<code>key</code>, <code>index</code>, <code>.by</code> and
+<code>id</code> as needed; explicit selections override saved metadata.
+Saved column names and recovered membership values are validated during
+import.</p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">resamples</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_rset.html">as_rset</a></span><span class="op">(</span><span class="va">buffered</span><span class="op">)</span></span>
 <span><span class="va">restored</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_rset.html">from_rset</a></span><span class="op">(</span><span class="va">resamples</span>, id <span class="op">=</span> <span class="va">observation</span><span class="op">)</span></span>
@@ -285,6 +302,23 @@ those observations remain excluded.</p>
 imported. Bootstrap analysis samples containing duplicated rows cannot
 be expressed by an omission set and are rejected. All splits must refer
 to identical data in the same order.</p>
+<p>Create rsample splits on <strong>individual observation
+rows</strong>. For cubble data, convert a nested spatial cubble with
+<code><a href="https://huizezhang-sherry.github.io/cubble/reference/face.html" class="external-link">cubble::face_temporal()</a></code> before resampling, or resample the
+canonical table returned by <code><a href="../reference/fold_data.html">fold_data()</a></code>. Importing splits
+whose station rows would expand into several temporal observations is
+rejected: their row indices would otherwise refer to different
+observations after expansion. Resampling the canonical observation table
+and exporting with <code><a href="../reference/as_rset.html">as_rset()</a></code> both preserve observation
+order.</p>
+<p>Conversion to rsample materialises analysis indices, which can be
+much larger than compact omissions. For example, all leave-one-out
+analysis sets grow quadratically with the observation count.
+<code><a href="../reference/as_rset.html">as_rset()</a></code> checks their estimated integer storage against
+<code>getOption("naboer.max_bytes", 1024^3)</code> before expanding
+them. Use its <code>max_bytes</code> argument to choose a different
+limit after inspecting the design; the estimate excludes R object
+overhead.</p>
 <p>Finally, export the design for mgcv with
 <code>as_nei(buffered)</code>, and fit against
 <code>fold_data(buffered)</code>. Construct folds after preparing

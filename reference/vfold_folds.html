@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">naboer</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -83,7 +83,10 @@
 
 
 <dt id="arg--by">.by<a class="anchor" aria-label="anchor" href="#arg--by"></a></dt>
-<dd><p>Tidy selection of independent domain columns.</p></dd>
+<dd><p>Tidy selection of independent domain columns. These constrain
+generated dependence queries and qualify group/block identities. Custom
+indices and existing omissions are retained as supplied; V-fold allocation
+can combine whole blocks from several domains in one fold.</p></dd>
 
 
 <dt id="arg-id">id<a class="anchor" aria-label="anchor" href="#arg-id"></a></dt>
@@ -93,6 +96,12 @@
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A compact <code>naboer_folds</code> object.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p><code>.by</code> qualifies group identities; it does not create a separate
+V-fold schedule within each domain. Every observation is assessed once
+across the requested <code>v</code> folds.</p>
     </div>
 
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

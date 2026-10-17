@@ -4,7 +4,11 @@ Assessment observations are strictly after the origin and gap and no
 later than the horizon endpoint. Every future observation, including
 observations beyond the horizon, is omitted. Sliding windows also omit
 old observations. Other independent domains remain available for
-fitting.
+fitting. Forecasts across several series in the same domain must use
+time spans and `within = "domain"`, so that every series shares the
+cutoff. Count forecasts require one series per independent domain;
+`within = "key"` is rejected when it would leave another series' future
+observations available in that domain.
 
 ## Usage
 

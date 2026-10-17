@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">naboer</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -75,6 +75,12 @@ distance checks. Geographic queries respect the current sf
 spherical/ellipsoidal engine. Constructors never change
 <code>sf_use_s2()</code>, repair invalid geometry or assume a missing
 CRS.</p>
+<p>Radius thresholds and block assignments use the stored coordinates.
+An <code>sf</code> precision attribute is retained in
+<code><a href="../reference/fold_data.html">fold_data()</a></code> but does not implicitly round coordinates
+during construction. Round the coordinates explicitly beforehand if the
+intended design uses rounded locations. This also keeps indexed
+candidates consistent with exact geometry distances.</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sites</span> <span class="op">&lt;-</span> <span class="fu">sf</span><span class="fu">::</span><span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_as_sf.html" class="external-link">st_as_sf</a></span><span class="op">(</span></span>
 <span>  <span class="fu">tibble</span><span class="fu">::</span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>site <span class="op">=</span> <span class="va">letters</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">6</span><span class="op">]</span>, east <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span>, <span class="fl">500</span>, <span class="fl">1000</span>, <span class="fl">2000</span>, <span class="fl">3000</span><span class="op">)</span>, north <span class="op">=</span> <span class="fl">0</span><span class="op">)</span>,</span>
@@ -96,21 +102,39 @@ require an explicit integer <code>assignment</code> column. Non-point
 observations retain their original geometry; block assignment uses the
 first intersecting block rather than silently substituting a
 centroid.</p>
+<p>Use <code>origin = c(x, y)</code> to keep a grid anchored across
+datasets or subsets, including negative coordinates. Square boundaries
+pass through the anchor; a hexagonal cell is centred on it. Hexagonal
+<code>size</code> is the distance between opposite edges, not the side
+length. Shared-boundary ties use cells ordered south to north, then west
+to east. With the same explicit anchor, changing the data extent does
+not move the grid. The default anchor is calculated from each dataset’s
+extent.</p>
+<p>Grid creation checks its estimated allocation against
+<code>options(naboer.max_bytes)</code> (1 GiB by default) before
+allocating polygon cells. Increasing the block size or limiting the
+spatial extent can reduce the allocation.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">blocks</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/spatial_folds.html">spatial_folds</a></span><span class="op">(</span><span class="va">sites</span>, size <span class="op">=</span> <span class="fu">units</span><span class="fu">::</span><span class="fu"><a href="https://r-quantities.github.io/units/reference/units.html" class="external-link">set_units</a></span><span class="op">(</span><span class="fl">500</span>, <span class="st">"m"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">buffered</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/buffer_folds.html">buffer_folds</a></span><span class="op">(</span><span class="va">blocks</span>, spatial <span class="op">=</span> <span class="fu"><a href="../reference/spatial_window.html">spatial_window</a></span><span class="op">(</span><span class="fu">units</span><span class="fu">::</span><span class="fu"><a href="https://r-quantities.github.io/units/reference/units.html" class="external-link">set_units</a></span><span class="op">(</span><span class="fl">100</span>, <span class="st">"m"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu">tibble</span><span class="fu">::</span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">buffered</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 4 × 6</span></span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 5 × 6</span></span></span>
 <span><span class="co">#&gt;   fold  n_assessment n_omission n_analysis n_buffer omitted_fraction</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>            <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 1                3          3          3        0            0.5  </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> 2                1          1          5        0            0.167</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 1                1          2          4        1            0.333</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> 2                2          3          3        1            0.5  </span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> 3                1          1          5        0            0.167</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> 4                1          1          5        0            0.167</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> 4                1          1          5        0            0.167</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> 5                1          1          5        0            0.167</span></span></code></pre></div>
 <p>Generated geographic grids use a local azimuthal equidistant
 projection. For large extents, select an appropriate explicit projected
 <code>grid_crs</code>. Physical distance radii remain separate from that
-grid representation.</p>
+grid representation. Geographic extents spanning more than 180 degrees
+of longitude require an explicit projected <code>grid_crs</code>, so an
+automatic local projection cannot silently split an antimeridian study
+area. Geographic distance windows still work across the antimeridian. A
+projected grid width describes distances in that projection; it need not
+be the same surface distance everywhere over a large study area.</p>
 <div class="section level2">
 <h2 id="repeated-station-observations">Repeated station observations<a class="anchor" aria-label="anchor" href="#repeated-station-observations"></a>
 </h2>
@@ -147,7 +171,16 @@ observation’s geometry.</p>
 observation. Its <code>naboer_source</code> attribute maps canonical
 rows back to the nested spatial row and within-series row, or to the
 source long row. Actual spatial <code>sf</code> geometries are restored
-for temporal cubbles; polygon geometry is preserved.</p>
+for temporal cubbles; polygon geometry is preserved. The active geometry
+is preserved even when the spatial component contains several
+<code>sfc</code> columns. Missing coordinates do not prevent a purely
+temporal design: these rows remain in <code><a href="../reference/fold_data.html">fold_data()</a></code>. Spatial
+constructors require complete, valid geometries and a CRS.</p>
+<p>Cubble 1.0.0 itself accepts one key column. For data naturally
+identified by several columns, ordinary <code>sf</code> objects or
+tibbles support composite <code>key</code> and <code>.by</code>
+selections directly, or a composite identifier can be created before
+constructing a cubble.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">values</span> <span class="op">&lt;-</span> <span class="fu">tibble</span><span class="fu">::</span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span></span>
 <span>  site <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="va">letters</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">6</span><span class="op">]</span>, each <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>,</span>

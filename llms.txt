@@ -10,8 +10,9 @@ including dependence buffers. Export these designs to `mgcv` for
 NCV/QNCV smoothness selection, or to `rsample` for explicit resampling
 workflows.
 
-This is a development version. `tools/RELEASE.md` records the validation
-required before 0.1.0.
+This is the 0.1.0 release candidate, pending release approval.
+`tools/RELEASE.md` records completed validation and remaining release
+gates. It has not been tagged or submitted to CRAN.
 
 ## Temporal neighbourhoods
 
@@ -61,6 +62,15 @@ if (requireNamespace("sf", quietly = TRUE) &&
   space <- neighbourhoods(
     stations, spatial = spatial_window(units::set_units(2, "km"))
   )
+  observations <- stations[rep(seq_len(nrow(stations)), each = 10), ]
+  observations$date <- rep(as.Date("2026-01-01") + 0:9, nrow(stations))
+  space_time <- observations |>
+    neighbourhoods(
+      key = site, index = date,
+      spatial = spatial_window(units::set_units(2, "km")),
+      temporal = temporal_window(time_span(1, "days")),
+      combine = "intersection"
+    )
 }
 ```
 
@@ -69,7 +79,9 @@ Supply both window arguments and explicitly choose
 neighbourhoods. Keys identify stations or series; `.by` defines
 independent domains. Multiple temporal series require `within = "key"`
 or `within = "domain"`. Neither keys nor `group_by()` silently declare
-independence.
+independence. For forecasting, use shared elapsed/calendar cutoffs
+across dependent series. Count-based horizons require one series per
+explicitly independent domain.
 
 ## Choose a prediction task
 
@@ -89,6 +101,9 @@ Large memberships remain compressed until requested. Export estimates
 packed size and defaults to a 1 GiB limit, controlled by `max_bytes` or
 `naboer.max_bytes`. Million-observation sparse designs are benchmarked;
 wide windows can still require enormous output.
+[`as_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md)
+also guards analysis-complement expansion, which can be much larger than
+`nei` export.
 
 Prepare complete modelling data before constructing folds. Rebuild the
 design after changing observations or their order. A valid design

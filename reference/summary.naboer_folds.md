@@ -23,4 +23,6 @@ summary(object, ...)
 
 A list with design counts, fold-size ranges and an observation-level
 assessment-frequency tibble. Summary never expands membership
-list-columns.
+list-columns. `buffer_size` counts omission-only observations, including
+forecasting exclusions outside the assessment horizon or training
+window.

@@ -34,6 +34,12 @@ indices use period-start dates for queries;
 [`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md)
 preserves their original class.
 
+An already resolved timestamp retains its exact instant when shifted by
+zero, including either occurrence of a repeated daylight-saving clock
+time. Supplied POSIXct origins may use another display timezone;
+calendar arithmetic always uses the timezone of the data index. Supply
+timezone-aware timestamps when local calendar boundaries matter.
+
 Observation-count spans count actual rows and require `within = "key"`.
 They do not infer missing observations. Resolve tied times within a
 counted series first. Duration windows can include simultaneous
@@ -63,7 +69,11 @@ series.
 An origin defines what was available for fitting. Exclude the gap, then
 score the assessment horizon. All later observations remain omitted,
 including those beyond the horizon. Origins span all participating
-series in a domain by default.
+series in a domain by default. This shared cutoff prevents a station’s
+future data from remaining available while another station is assessed.
+Use elapsed or calendar spans for dependent multiple-series forecasting.
+`within = "key"` is rejected when an independent domain contains
+multiple series.
 
 ``` r
 
@@ -87,12 +97,34 @@ assessment_indices(forecast, 1)
 #> [1]  6  7 18 19
 ```
 
-Use `window = "sliding"` with `lookback` for finite training history.
-Generated origins require complete horizons; empty generated assessment
-windows are skipped. Explicit `origins` require nonempty training and
-assessment in every participating domain. Construct predictors and
-imputations using only information available at each origin in
-explicit-refit workflows.
+Use `window = "sliding"` with `lookback` for finite training history:
+training includes times strictly after `origin - lookback` and through
+the origin. Generated origins have horizon endpoints no later than the
+latest observation in their domain. Individual series may have gaps or
+end earlier; constructors do not fill them, and empty generated
+assessment windows are skipped. Explicit `origins` require nonempty
+training and assessment in every participating domain. Calendar
+sequences remain anchored to the original date when initial spans and
+steps both use months/years or both use days/weeks, preserving leap-day
+and month-end boundaries without cumulative clamping drift.
+
+Count-based forecasting supports one series per independent domain.
+There is no common observation-count cutoff across asynchronous
+dependent series. Use a shared time-based horizon for such data. Setting
+`.by = site` declares sites independent: observations from other sites
+remain available for fitting, including their later timestamps. Make
+this choice only when that availability matches the prediction task.
+Leave `.by` unset when all stations must share the same information
+cutoff.
+
+The fold design controls which observations contribute to fitting and
+scoring; it cannot prevent leakage through predictors or preprocessing.
+Construct predictors and imputations using only information available at
+each origin in explicit-refit workflows. Forecasting may omit a large
+fraction of the data, where an NCV approximation need not match full
+refits accurately. Check the approximation for the fitted model and
+omission widths; the reproducible `benchmarks/approximation.R` study
+illustrates that comparison.
 
 ``` r
 

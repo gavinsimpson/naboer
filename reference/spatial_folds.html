@@ -17,7 +17,7 @@ grid_crs is supplied. Custom regions retain their own geometry."></head><body>
 
     <a class="navbar-brand me-2" href="../index.html">naboer</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -106,7 +106,9 @@ row numbers. Required to resolve overlapping custom regions.</p></dd>
 
 
 <dt id="arg-origin">origin<a class="anchor" aria-label="anchor" href="#arg-origin"></a></dt>
-<dd><p>Optional numeric x/y grid origin in the grid CRS. The default is
+<dd><p>Optional numeric x/y grid anchor in the grid CRS. The grid
+extends in both directions from the anchor: square cell boundaries pass
+through it, and a hexagonal cell is centred on it. The default is
 the coordinate-wise floor of the bounding-box minimum divided by cell width.</p></dd>
 
 

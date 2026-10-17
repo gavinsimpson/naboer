@@ -11,13 +11,13 @@ Source:
 [`DESCRIPTION`](https://github.com/gavinsimpson/naboer/blob/main/DESCRIPTION)
 
 Simpson G (2026). *naboer: Dependence-Aware Cross-Validation
-Neighbourhoods*. R package version 0.0.1.9000,
+Neighbourhoods*. R package version 0.1.0,
 <https://gavinsimpson.github.io/naboer/>.
 
     @Manual{,
       title = {naboer: Dependence-Aware Cross-Validation Neighbourhoods},
       author = {Gavin L. Simpson},
       year = {2026},
-      note = {R package version 0.0.1.9000},
+      note = {R package version 0.1.0},
       url = {https://gavinsimpson.github.io/naboer/},
     }

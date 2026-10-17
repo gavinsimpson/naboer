@@ -80,7 +80,10 @@ Environmental folds hold out clusters of observations in selected
 predictor space. Numeric predictors are standardised by default before
 seeded k-means clustering. Here temperature and moisture have different
 scales, so standardisation gives both an equal role in the distance
-calculation.
+calculation. Each cluster is held out as a whole, so fold sizes may
+differ. `balance` applies to the existing-strata workflow below; it does
+not impose balanced k-means clusters. With independent domains, `v`
+requests that many clusters per domain.
 
 ``` r
 
@@ -120,7 +123,11 @@ tibble::as_tibble(new_habitat)
 
 Environmental holdouts may involve extrapolation. Their errors answer a
 different question from random V-fold errors, even when both use the
-same model and data.
+same model and data. Clustering does not automatically keep whole
+stations together: observations from one station can enter different
+folds if their predictors change over time. Use strata constant within
+the required observational units, or add dependence buffers, when those
+restrictions belong to the prediction task.
 
 ## Phylogenetic dependence and new taxa
 
@@ -167,7 +174,10 @@ finite, nonnegative length.
 For new-taxon prediction, complete-linkage clustering produces blocks of
 taxa. Choose either a number of clusters with `v`, or a distance
 threshold with `height`. Replicated observations of a taxon stay
-together.
+together. If `.by` defines independent domains, taxon holdouts apply
+separately within each domain; the same taxon may remain in training in
+another domain. Leave `.by` unspecified when the target is a taxon
+absent from the entire training dataset.
 
 ``` r
 
@@ -234,7 +244,13 @@ The next chunk requires optional **rsample** and is skipped when it is
 unavailable. The exported manual resamples preserve analysis and
 assessment independently. Buffer-only observations belong to neither
 set. On import, omission is the complement of analysis, so those
-observations remain excluded.
+observations remain excluded. The exported rset also saves series keys,
+temporal index, independent-domain columns and identifiers.
+[`from_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md)
+restores them, so subsequent buffers respect the original domain
+boundaries. For external resamples supply `key`, `index`, `.by` and `id`
+as needed; explicit selections override saved metadata. Saved column
+names and recovered membership values are validated during import.
 
 ``` r
 
@@ -252,6 +268,27 @@ Ordinary rsample V-fold and repeated assessment designs can be imported.
 Bootstrap analysis samples containing duplicated rows cannot be
 expressed by an omission set and are rejected. All splits must refer to
 identical data in the same order.
+
+Create rsample splits on **individual observation rows**. For cubble
+data, convert a nested spatial cubble with
+[`cubble::face_temporal()`](https://huizezhang-sherry.github.io/cubble/reference/face.html)
+before resampling, or resample the canonical table returned by
+[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md).
+Importing splits whose station rows would expand into several temporal
+observations is rejected: their row indices would otherwise refer to
+different observations after expansion. Resampling the canonical
+observation table and exporting with
+[`as_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md)
+both preserve observation order.
+
+Conversion to rsample materialises analysis indices, which can be much
+larger than compact omissions. For example, all leave-one-out analysis
+sets grow quadratically with the observation count.
+[`as_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md)
+checks their estimated integer storage against
+`getOption("naboer.max_bytes", 1024^3)` before expanding them. Use its
+`max_bytes` argument to choose a different limit after inspecting the
+design; the estimate excludes R object overhead.
 
 Finally, export the design for mgcv with `as_nei(buffered)`, and fit
 against `fold_data(buffered)`. Construct folds after preparing complete

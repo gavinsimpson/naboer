@@ -54,7 +54,9 @@ spatial_folds(
 
 - origin:
 
-  Optional numeric x/y grid origin in the grid CRS. The default is the
+  Optional numeric x/y grid anchor in the grid CRS. The grid extends in
+  both directions from the anchor: square cell boundaries pass through
+  it, and a hexagonal cell is centred on it. The default is the
   coordinate-wise floor of the bounding-box minimum divided by cell
   width.
 

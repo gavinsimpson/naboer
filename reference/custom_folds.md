@@ -25,7 +25,10 @@ custom_folds(data, assessment, omission = assessment, .by = NULL, id = NULL)
 
 - .by:
 
-  Tidy selection of independent domain columns.
+  Tidy selection of independent domain columns. These constrain
+  generated dependence queries and qualify group/block identities.
+  Custom indices and existing omissions are retained as supplied; V-fold
+  allocation can combine whole blocks from several domains in one fold.
 
 - id:
 

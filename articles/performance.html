@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">naboer</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -130,6 +130,19 @@ bam neighbourhood criteria does not remove the requirement to define all
 neighbourhoods. Forecast designs retain compressed future exclusions
 until export, which can itself be quadratic in the number of
 observations/origins.</p>
+<p><code><a href="../reference/as_rset.html">as_rset()</a></code> materialises analysis complements as well as
+assessment membership. For a million-row LOO design, these analysis
+vectors alone need about 4 TB, despite the compact native
+representation. Conversion has its own <code>max_bytes</code> guard
+using the same 1 GiB default. This estimate covers index vectors, not
+the additional list, split and data overhead in rsample. Convert only
+feasible designs and use a memory budget below available process
+memory.</p>
+<p>Output size is separate from model-fitting cost. In particular,
+discrete <code>bam()</code> NCV needs neighbourhood-sized matrix
+inversions and can be impractical for large blocks even if the exported
+integer arrays fit in memory. See <a href="https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/bam.html" class="external-link">mgcv’s
+bam documentation</a>.</p>
 </div>
 <div class="section level2">
 <h2 id="reproducible-benchmarks">Reproducible benchmarks<a class="anchor" aria-label="anchor" href="#reproducible-benchmarks"></a>

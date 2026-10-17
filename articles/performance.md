@@ -71,6 +71,21 @@ neighbourhoods. Forecast designs retain compressed future exclusions
 until export, which can itself be quadratic in the number of
 observations/origins.
 
+[`as_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md)
+materialises analysis complements as well as assessment membership. For
+a million-row LOO design, these analysis vectors alone need about 4 TB,
+despite the compact native representation. Conversion has its own
+`max_bytes` guard using the same 1 GiB default. This estimate covers
+index vectors, not the additional list, split and data overhead in
+rsample. Convert only feasible designs and use a memory budget below
+available process memory.
+
+Output size is separate from model-fitting cost. In particular, discrete
+`bam()` NCV needs neighbourhood-sized matrix inversions and can be
+impractical for large blocks even if the exported integer arrays fit in
+memory. See [mgcv’s bam
+documentation](https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/bam.html).
+
 ## Reproducible benchmarks
 
 The source repository’s `benchmarks/` directory contains R scripts for

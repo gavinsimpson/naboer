@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">naboer</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -41,16 +41,16 @@
     </div>
 
     <div class="section level2">
-<h2 class="pkg-version" data-toc-text="0.0.1.9000" id="naboer-0019000">naboer 0.0.1.9000<a class="anchor" aria-label="anchor" href="#naboer-0019000"></a></h2>
+<h2 class="pkg-version" data-toc-text="0.1.0" id="naboer-010">naboer 0.1.0<a class="anchor" aria-label="anchor" href="#naboer-010"></a></h2>
 <div class="section level3">
-<h3 id="new-features-0-0-1-9000">New features<a class="anchor" aria-label="anchor" href="#new-features-0-0-1-9000"></a></h3>
-<ul><li>Added cross-validation folds with separate assessment and omission membership, validation, diagnostics, tibble views and plots. Designs export complete <code>nei</code> structures for mgcv NCV/QNCV, including optional neighbourhood sampling and covariance settings.</li>
-<li>Added spatial, temporal and spatiotemporal neighbourhoods and block designs, asymmetric elapsed/calendar/count windows, buffers and rolling-origin forecasts across multiple series and independent domains.</li>
-<li>Added grouped and hierarchical holdouts, environmental clustering and strata, phylogenetic distance neighbourhoods and clade/cluster holdouts, and faithful rsample import/export.</li>
-<li>Added optional sf, tsibble and cubble adapters, indexed spatial queries, compressed interval storage, allocation guards and reproducible R benchmarks.</li>
+<h3 id="new-features-0-1-0">New features<a class="anchor" aria-label="anchor" href="#new-features-0-1-0"></a></h3>
+<ul><li>Added cross-validation folds with separate assessment and omission membership, validation, diagnostics, tibble views and plots. Designs export complete <code>nei</code> structures for mgcv NCV/QNCV, including optional neighbourhood sampling and covariance settings. Compatibility checks require at least two folds and explicit sampled fold numbers for nonsingleton omissions under the tested mgcv 1.9-4 integration.</li>
+<li>Added spatial, temporal and spatiotemporal neighbourhoods and block designs, asymmetric elapsed/calendar/count windows, buffers and rolling-origin forecasts across multiple series and independent domains. Shared forecasting cutoffs exclude future observations across dependent series; calendar shifts preserve zero-width instants and use the index time zone.</li>
+<li>Added grouped and hierarchical holdouts, environmental clustering and strata, phylogenetic distance neighbourhoods and clade/cluster holdouts, and faithful rsample import/export with preserved key/domain metadata and guarded analysis expansion. Imports require resamples indexing individual observations.</li>
+<li>Added optional sf, tsibble and cubble adapters, indexed spatial queries, compressed interval storage, allocation guards and reproducible R benchmarks. Explicit spatial grid anchors remain stable across data subsets, and radius queries consistently use stored coordinates. The approximation study includes large-omission stress tests and independent weighted Gaussian refits.</li>
 </ul></div>
 <div class="section level3">
-<h3 id="user-visible-changes-0-0-1-9000">User visible changes<a class="anchor" aria-label="anchor" href="#user-visible-changes-0-0-1-9000"></a></h3>
+<h3 id="user-visible-changes-0-1-0">User visible changes<a class="anchor" aria-label="anchor" href="#user-visible-changes-0-1-0"></a></h3>
 <ul><li>The minimum supported R version is now 4.4.0.</li>
 </ul></div>
 </div>

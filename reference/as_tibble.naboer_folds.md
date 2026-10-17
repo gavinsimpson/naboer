@@ -42,3 +42,6 @@ as_tibble(
 ## Value
 
 A tibble with fold identifiers and analysis/assessment/omission counts.
+`n_buffer` counts all omission-only observations, including unavailable
+future or old observations in forecasting designs, not just spatial or
+temporal dependence buffers.

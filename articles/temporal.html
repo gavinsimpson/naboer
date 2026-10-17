@@ -20,7 +20,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">naboer</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.1.9000</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -96,6 +96,11 @@ Ambiguous/nonexistent times error unless explicitly resolved with
 <code><a href="../reference/time_span.html">time_span()</a></code> arguments. Numeric indices are seconds. Tsibble
 year-week/month/quarter indices use period-start dates for queries;
 <code><a href="../reference/fold_data.html">fold_data()</a></code> preserves their original class.</p>
+<p>An already resolved timestamp retains its exact instant when shifted
+by zero, including either occurrence of a repeated daylight-saving clock
+time. Supplied POSIXct origins may use another display timezone;
+calendar arithmetic always uses the timezone of the data index. Supply
+timezone-aware timestamps when local calendar boundaries matter.</p>
 <p>Observation-count spans count actual rows and require
 <code>within = "key"</code>. They do not infer missing observations.
 Resolve tied times within a counted series first. Duration windows can
@@ -121,7 +126,11 @@ domain or series.</p>
 <p>An origin defines what was available for fitting. Exclude the gap,
 then score the assessment horizon. All later observations remain
 omitted, including those beyond the horizon. Origins span all
-participating series in a domain by default.</p>
+participating series in a domain by default. This shared cutoff prevents
+a station’s future data from remaining available while another station
+is assessed. Use elapsed or calendar spans for dependent multiple-series
+forecasting. <code>within = "key"</code> is rejected when an independent
+domain contains multiple series.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">forecast</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/forecast_folds.html">forecast_folds</a></span><span class="op">(</span><span class="va">x</span>,</span>
 <span>  initial <span class="op">=</span> <span class="fu"><a href="../reference/time_span.html">time_span</a></span><span class="op">(</span><span class="fl">3</span>, <span class="st">"days"</span><span class="op">)</span>,</span>
@@ -142,11 +151,33 @@ participating series in a domain by default.</p>
 <span><span class="co">#&gt; [[1]]</span></span>
 <span><span class="co">#&gt; [1]  6  7 18 19</span></span></code></pre></div>
 <p>Use <code>window = "sliding"</code> with <code>lookback</code> for
-finite training history. Generated origins require complete horizons;
-empty generated assessment windows are skipped. Explicit
-<code>origins</code> require nonempty training and assessment in every
-participating domain. Construct predictors and imputations using only
-information available at each origin in explicit-refit workflows.</p>
+finite training history: training includes times strictly after
+<code>origin - lookback</code> and through the origin. Generated origins
+have horizon endpoints no later than the latest observation in their
+domain. Individual series may have gaps or end earlier; constructors do
+not fill them, and empty generated assessment windows are skipped.
+Explicit <code>origins</code> require nonempty training and assessment
+in every participating domain. Calendar sequences remain anchored to the
+original date when initial spans and steps both use months/years or both
+use days/weeks, preserving leap-day and month-end boundaries without
+cumulative clamping drift.</p>
+<p>Count-based forecasting supports one series per independent domain.
+There is no common observation-count cutoff across asynchronous
+dependent series. Use a shared time-based horizon for such data. Setting
+<code>.by = site</code> declares sites independent: observations from
+other sites remain available for fitting, including their later
+timestamps. Make this choice only when that availability matches the
+prediction task. Leave <code>.by</code> unset when all stations must
+share the same information cutoff.</p>
+<p>The fold design controls which observations contribute to fitting and
+scoring; it cannot prevent leakage through predictors or preprocessing.
+Construct predictors and imputations using only information available at
+each origin in explicit-refit workflows. Forecasting may omit a large
+fraction of the data, where an NCV approximation need not match full
+refits accurately. Check the approximation for the fitted model and
+omission widths; the reproducible
+<code>benchmarks/approximation.R</code> study illustrates that
+comparison.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">series</span> <span class="op">&lt;-</span> <span class="fu">tsibble</span><span class="fu">::</span><span class="fu"><a href="https://tsibble.tidyverts.org/reference/as-tsibble.html" class="external-link">as_tsibble</a></span><span class="op">(</span><span class="va">x</span>, key <span class="op">=</span> <span class="va">site</span>, index <span class="op">=</span> <span class="va">date</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/temporal_folds.html">temporal_folds</a></span><span class="op">(</span><span class="va">series</span>, <span class="fu"><a href="../reference/time_span.html">time_span</a></span><span class="op">(</span><span class="fl">4</span>, <span class="st">"days"</span><span class="op">)</span>, within <span class="op">=</span> <span class="st">"key"</span><span class="op">)</span></span>

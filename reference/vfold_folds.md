@@ -40,7 +40,10 @@ vfold_folds(
 
 - .by:
 
-  Tidy selection of independent domain columns.
+  Tidy selection of independent domain columns. These constrain
+  generated dependence queries and qualify group/block identities.
+  Custom indices and existing omissions are retained as supplied; V-fold
+  allocation can combine whole blocks from several domains in one fold.
 
 - id:
 
@@ -49,3 +52,9 @@ vfold_folds(
 ## Value
 
 A compact `naboer_folds` object.
+
+## Details
+
+`.by` qualifies group identities; it does not create a separate V-fold
+schedule within each domain. Every observation is assessed once across
+the requested `v` folds.
