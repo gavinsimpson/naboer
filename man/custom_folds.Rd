@@ -12,7 +12,10 @@ custom_folds(data, assessment, omission = assessment, .by = NULL, id = NULL)
 \item{assessment, omission}{Lists of observation indices, one vector per fold.
 Omission defaults to assessment.}
 
-\item{.by}{Tidy selection of independent domain columns.}
+\item{.by}{Tidy selection of independent domain columns. These constrain
+generated dependence queries and qualify group/block identities. Custom
+indices and existing omissions are retained as supplied; V-fold allocation
+can combine whole blocks from several domains in one fold.}
 
 \item{id}{Optional tidy selection of a unique observation identifier.}
 }

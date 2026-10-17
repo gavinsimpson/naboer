@@ -27,6 +27,9 @@ FALSE so large designs are not expanded accidentally.}
 }
 \value{
 A tibble with fold identifiers and analysis/assessment/omission counts.
+\code{n_buffer} counts all omission-only observations, including unavailable
+future or old observations in forecasting designs, not just spatial or
+temporal dependence buffers.
 }
 \description{
 Inspect folds as a tibble

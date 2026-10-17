@@ -25,7 +25,10 @@ vfold_folds(
 
 \item{seed}{Optional local random seed; does not change the caller's RNG state.}
 
-\item{.by}{Tidy selection of independent domain columns.}
+\item{.by}{Tidy selection of independent domain columns. These constrain
+generated dependence queries and qualify group/block identities. Custom
+indices and existing omissions are retained as supplied; V-fold allocation
+can combine whole blocks from several domains in one fold.}
 
 \item{id}{Optional tidy selection of a unique observation identifier.}
 }
@@ -34,4 +37,9 @@ A compact \code{naboer_folds} object.
 }
 \description{
 Random V-fold cross-validation
+}
+\details{
+\code{.by} qualifies group identities; it does not create a separate
+V-fold schedule within each domain. Every observation is assessed once
+across the requested \code{v} folds.
 }

@@ -82,6 +82,7 @@ temporal_check_index <- function(ctx) {
   if (length(ctx$index) != 1L) abort_naboer("Supply exactly one temporal `index` column.")
   x <- temporal_normalize_index(ctx$data[[ctx$index]])
   if (!(inherits(x, "Date") || inherits(x, "POSIXt") || is.numeric(x)) ||
+    !is.null(dim(x)) || length(x) != ctx$n ||
     anyNA(x) || any(!is.finite(as.numeric(x)))) {
     abort_naboer("The temporal index must contain finite numeric, Date, or POSIXct values without missing values.")
   }
@@ -114,13 +115,17 @@ temporal_domain_ids <- function(ctx, within = NULL, count = FALSE) {
 }
 
 temporal_seconds <- function(span) {
-  span$n * switch(span$unit,
+  seconds <- span$n * switch(span$unit,
     seconds = 1,
     minutes = 60,
     hours = 3600,
     days = 86400,
     weeks = 604800
   )
+  if (!is.finite(seconds)) {
+    abort_naboer("The elapsed span is too large to represent in seconds.")
+  }
+  seconds
 }
 
 temporal_numeric <- function(x) {
@@ -139,9 +144,18 @@ temporal_shift <- function(x, span, multiplier = 1) {
   if (!inherits(x, c("Date", "POSIXt"))) {
     abort_naboer("Calendar spans require a Date or POSIXct index.")
   }
-  need_package("clock")
   n <- span$n * multiplier
-  args <- list(x = x, n = n)
+  recycled <- vctrs::vec_recycle_common(x = x, n = n)
+  x <- recycled$x
+  n <- recycled$n
+  changed <- n != 0
+  # The input already identifies a real instant, including which occurrence
+  # of a repeated clock time it represents. A zero shift must preserve it.
+  if (!any(changed)) {
+    return(x)
+  }
+  need_package("clock")
+  args <- list(x = x[changed], n = n[changed])
   if (span$unit %in% c("months", "years")) args$invalid <- "previous"
   if (inherits(x, "POSIXt")) {
     args$ambiguous <- span$ambiguous
@@ -153,9 +167,27 @@ temporal_shift <- function(x, span, multiplier = 1) {
     months = clock::add_months,
     years = clock::add_years
   )
-  tryCatch(do.call(fun, args), error = function(e) {
+  result <- tryCatch(do.call(fun, args), error = function(e) {
     abort_naboer(paste0("Calendar arithmetic failed: ", conditionMessage(e)), "time")
   })
+  x[changed] <- result
+  x
+}
+
+temporal_compatible_origin <- function(x, origin) {
+  (inherits(origin, "Date") || inherits(origin, "POSIXt") || is.numeric(origin)) &&
+    is.null(dim(origin)) &&
+    inherits(x, "Date") == inherits(origin, "Date") &&
+    inherits(x, "POSIXt") == inherits(origin, "POSIXt")
+}
+
+temporal_origin_zone <- function(x, origin) {
+  if (inherits(x, "POSIXt") && inherits(origin, "POSIXt")) {
+    # Origins identify instants, while calendar arithmetic follows the data's
+    # civil-time zone even if an origin was supplied in another display zone.
+    attr(origin, "tzone") <- attr(x, "tzone")
+  }
+  origin
 }
 
 # Compact focal membership in the permutation sorted by domain and time.
@@ -230,14 +262,14 @@ temporal_blocks <- function(ctx, size, origin = NULL, within = NULL) {
     abort_naboer("`origin` must be one nonmissing temporal index value.")
   }
   if (!is.null(origin) &&
-    (inherits(x, "Date") != inherits(origin, "Date") ||
-      inherits(x, "POSIXt") != inherits(origin, "POSIXt") ||
+    (!temporal_compatible_origin(x, origin) ||
       !is.finite(as.numeric(origin)))) {
     abort_naboer("`origin` must be finite and have the same temporal index class as the data.")
   }
   if (size$type == "count" && !is.null(origin)) {
     abort_naboer("Count blocks start at the first observation; do not supply `origin`.")
   }
+  origin <- temporal_origin_zone(x, origin)
   block <- numeric(ctx$n)
   for (rows in split(seq_len(ctx$n), domains)) {
     if (size$type == "count") {
@@ -298,6 +330,10 @@ temporal_blocks <- function(ctx, size, origin = NULL, within = NULL) {
 #' than the horizon endpoint. Every future observation, including observations
 #' beyond the horizon, is omitted. Sliding windows also omit old observations.
 #' Other independent domains remain available for fitting.
+#' Forecasts across several series in the same domain must use time spans and
+#' `within = "domain"`, so that every series shares the cutoff. Count forecasts
+#' require one series per independent domain; `within = "key"` is rejected when
+#' it would leave another series' future observations available in that domain.
 #'
 #' @inheritParams temporal_folds
 #' @param initial Initial training span, measured from the first observation.
@@ -344,18 +380,28 @@ forecast_folds <- function(data, initial = NULL, horizon, step = horizon,
   x <- temporal_check_index(ctx)
   # Forecasting defaults to shared origins across the independent domain.
   if (is.null(within)) within <- if (count) "key" else "domain"
+  within <- match.arg(within, c("key", "domain"))
+  if (identical(within, "key") && length(ctx$key) &&
+    length(unique(group_ids(ctx$data, c(ctx$by, ctx$key)))) >
+      length(unique(ctx$domains))) {
+    abort_naboer(paste0(
+      "`within = 'key'` forecasting requires one series per independent domain. ",
+      "Use elapsed/calendar spans with `within = 'domain'` for shared cutoffs; ",
+      "use `.by` to separate series only when they are independent."
+    ))
+  }
   domains <- temporal_domain_ids(ctx, within, count)
   if (count) temporal_unique_times(ctx, domains)
   if (!is.null(origins)) {
     origins <- temporal_normalize_index(origins)
+    if (!temporal_compatible_origin(x, origins)) {
+      abort_naboer("`origins` must have the same temporal index class as the data.")
+    }
     if (!length(origins) || anyNA(origins) || any(!is.finite(as.numeric(origins)))) {
       abort_naboer("`origins` must contain finite nonmissing index values.")
     }
-    if (inherits(x, "Date") != inherits(origins, "Date") ||
-      inherits(x, "POSIXt") != inherits(origins, "POSIXt")) {
-      abort_naboer("`origins` must have the same temporal index class as the data.")
-    }
     if (anyDuplicated(origins)) abort_naboer("`origins` must be unique.")
+    origins <- temporal_origin_zone(x, origins)
     origins <- sort(origins)
   }
   ord <- order(domains, x, seq_len(ctx$n))
@@ -387,19 +433,40 @@ forecast_folds <- function(data, initial = NULL, horizon, step = horizon,
       } else {
         first <- temporal_shift(xx[1L], initial)
         if (temporal_numeric(first) > values[n]) next
-        # Shift directly from an anchor, retaining the original month-end
-        # when the initial span and step use the same calendar unit.
+        # Shift directly from an anchor. Equivalent calendar units share an
+        # anchor (years/months; weeks/days), avoiding month-end drift.
         out <- list()
         k <- 0L
+        previous <- -Inf
         repeat {
+          month_units <- c("months", "years")
+          day_units <- c("days", "weeks")
           if (initial$type == "calendar" && step$type == "calendar" &&
-            identical(initial$unit, step$unit)) {
+            ((initial$unit %in% month_units && step$unit %in% month_units) ||
+              (initial$unit %in% day_units && step$unit %in% day_units))) {
             distance <- step
-            distance$n <- initial$n + k * step$n
+            distance$unit <- if (step$unit %in% month_units) "months" else "days"
+            multiplier_for <- function(unit) {
+              switch(unit,
+                years = 12,
+                weeks = 7,
+                1
+              )
+            }
+            distance$n <- initial$n * multiplier_for(initial$unit) +
+              k * step$n * multiplier_for(step$unit)
             candidate <- temporal_shift(xx[1L], distance)
           } else {
             candidate <- temporal_shift(first, step, k)
           }
+          candidate_numeric <- temporal_numeric(candidate)
+          if (candidate_numeric <= previous) {
+            abort_naboer(paste0(
+              "The forecast `step` does not advance to a distinct instant. ",
+              "Increase its width or supply explicit distinct `origins`."
+            ), "time")
+          }
+          previous <- candidate_numeric
           endpoint <- temporal_shift(temporal_shift(candidate, gap), horizon)
           if (temporal_numeric(endpoint) > values[n]) break
           out[[length(out) + 1L]] <- candidate

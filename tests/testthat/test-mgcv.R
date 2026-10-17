@@ -60,6 +60,50 @@ test_that("gam optimises NCV and QNCV for Gaussian and Poisson data", {
   }
 })
 
+test_that("weighted block criteria score assessment rows and retain repetition", {
+  skip_if_not_installed("mgcv", minimum_version = "1.9.4")
+  n <- 48L
+  data <- tibble::tibble(x = seq(0, 1, length.out = n))
+  data$y <- sin(2 * pi * data$x) + 0.1 * cos(seq_len(n) * 1.9)
+  data$weight <- rep(c(0.5, 1, 2), length.out = n)
+  assessed <- list(c(2L, 3L), c(30L, 36L), c(3L, 18L))
+  omitted <- list(1:18, 20:40, 1:24)
+  folds <- custom_folds(data, assessed, omitted)
+  setup <- mgcv::gam(y ~ s(x, k = 6, bs = "cr"),
+    data = data,
+    weights = weight, fit = FALSE, na.action = stats::na.fail
+  )
+  smoothing <- 0.7
+  penalty <- matrix(0, ncol(setup$X), ncol(setup$X))
+  j <- seq.int(setup$off[[1L]], length.out = nrow(setup$S[[1L]]))
+  penalty[j, j] <- smoothing * setup$S[[1L]]
+  exact <- 0
+  predictions <- numeric()
+  for (i in seq_along(assessed)) {
+    training <- setdiff(seq_len(n), omitted[[i]])
+    design <- setup$X[training, , drop = FALSE]
+    weights <- data$weight[training]
+    beta <- solve(
+      crossprod(design, weights * design) + penalty,
+      crossprod(design, weights * data$y[training])
+    )
+    prediction <- drop(setup$X[assessed[[i]], , drop = FALSE] %*% beta)
+    predictions <- c(predictions, prediction)
+    exact <- exact + sum(data$weight[assessed[[i]]] *
+      (data$y[assessed[[i]]] - prediction)^2)
+  }
+  for (method in c("NCV", "QNCV")) {
+    fit <- mgcv::gam(
+      G = setup, sp = smoothing, method = method,
+      nei = as_nei(folds), na.action = stats::na.fail
+    )
+    expect_equal(as.numeric(fit$gcv.ubre), exact, tolerance = 1e-6)
+    expect_equal(as.numeric(attr(fit$gcv.ubre, "eta.cv")), predictions,
+      tolerance = 1e-6
+    )
+  }
+})
+
 test_that("sampled bam NCV receives complete neighbourhoods for covariance", {
   skip_if_not_installed("mgcv", minimum_version = "1.9.4")
   n <- 80L

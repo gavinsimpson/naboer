@@ -5,15 +5,24 @@
 \alias{from_rset}
 \title{Convert between naboer folds and rsample resamples}
 \usage{
-as_rset(x)
+as_rset(x, max_bytes = getOption("naboer.max_bytes", 1024^3))
 
-from_rset(x, id = NULL)
+from_rset(x, id = NULL, key = NULL, index = NULL, .by = NULL)
 }
 \arguments{
 \item{x}{A \code{naboer_folds} object for \code{as_rset()}, or an rsample \code{rset} for
 \code{from_rset()}.}
 
+\item{max_bytes}{Maximum estimated storage for analysis and assessment indices
+exported to rsample, in bytes. Defaults to option \code{naboer.max_bytes}, or
+1 GiB. The estimate excludes R object overhead. Use \code{Inf} to disable the
+memory guard after checking the design size.}
+
 \item{id}{Optional unique observation identifier column, using tidy selection.}
+
+\item{key, index, .by}{Tidy selections of series keys, temporal index and
+independent domains. Omitted selections restore metadata saved by
+\code{as_rset()}, or use native tsibble/cubble metadata where available.}
 }
 \value{
 \code{as_rset()} returns an rsample manual rset; \code{from_rset()} returns
@@ -23,4 +32,11 @@ a \code{naboer_folds} object.
 Analysis sets are the complement of omission sets. Assessment membership is
 preserved independently, including exclusion-only observations in buffered
 designs. Bootstrap resamples with duplicated analysis rows are not supported.
+Resamples must index individual observations. Convert nested cubbles to
+their temporal face before creating resamples; spatial-row indices cannot
+safely be reused after expanding nested temporal observations.
+Exported manual rsets retain column metadata for series keys, index,
+independent domains and observation identifiers. Import restores it unless
+explicit tidy selections override it. External rsets can supply these
+selections directly.
 }

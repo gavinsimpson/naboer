@@ -40,4 +40,7 @@ Select numeric predictors for k-means clustering, or supply existing strata.
 Clustering is performed separately in each independent domain. Standardising
 predictors gives each nonconstant variable equal scale. Constant predictors
 are reported and excluded within each domain.
+For clustering, \code{v} is the number of clusters per domain, and each cluster
+forms one holdout. Clusters can have unequal sizes. \code{balance} only affects
+allocation of preexisting \code{strata}, not k-means clustering.
 }

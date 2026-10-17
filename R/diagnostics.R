@@ -31,6 +31,9 @@ index_frequency <- function(x, n) {
 #'   FALSE so large designs are not expanded accidentally.
 #' @param .rows,.name_repair Reserved tibble arguments.
 #' @return A tibble with fold identifiers and analysis/assessment/omission counts.
+#'   `n_buffer` counts all omission-only observations, including unavailable
+#'   future or old observations in forecasting designs, not just spatial or
+#'   temporal dependence buffers.
 #' @exportS3Method tibble::as_tibble
 as_tibble.naboer_folds <- function(x, ..., folds = NULL, membership = FALSE,
                                    .rows = NULL, .name_repair = "check_unique") {
@@ -55,6 +58,8 @@ as_tibble.naboer_folds <- function(x, ..., folds = NULL, membership = FALSE,
 #' @param ... Unused; must be empty.
 #' @return A list with design counts, fold-size ranges and an observation-level
 #'   assessment-frequency tibble. Summary never expands membership list-columns.
+#'   `buffer_size` counts omission-only observations, including forecasting
+#'   exclusions outside the assessment horizon or training window.
 #' @export
 summary.naboer_folds <- function(object, ...) {
   rlang::check_dots_empty()
@@ -84,6 +89,8 @@ print.naboer_folds <- function(x, ...) {
 #'
 #' Spatial geometries are used when available, otherwise the temporal index or
 #' observation row is plotted. Only requested folds are expanded.
+#' The `omitted` role denotes omission-only observations; these can be dependence
+#' buffers, unavailable future observations, or other exclusions.
 #' @param object A `naboer_folds` object.
 #' @param folds Integer fold selection; defaults to the first fold.
 #' @param ... Unused; must be empty.
@@ -98,9 +105,9 @@ autoplot.naboer_folds <- function(object, folds = 1L, ...) {
   pieces <- lapply(selected, function(i) {
     data <- object$ctx$data
     role <- rep("analysis", object$ctx$n)
-    role[index_get(object$omission, i)] <- "buffer"
+    role[index_get(object$omission, i)] <- "omitted"
     role[index_get(object$assessment, i)] <- "assessment"
-    data$.naboer_role <- factor(role, c("analysis", "buffer", "assessment"))
+    data$.naboer_role <- factor(role, c("analysis", "omitted", "assessment"))
     data$.naboer_fold <- object$labels[[i]]
     data$.naboer_observation <- seq_len(object$ctx$n)
     if (length(object$ctx$index)) data$.naboer_time <- data[[object$ctx$index]]
@@ -121,7 +128,7 @@ autoplot.naboer_folds <- function(object, folds = 1L, ...) {
       ggplot2::geom_point()
   }
   p + ggplot2::facet_wrap(ggplot2::vars(.data$.naboer_fold)) +
-    ggplot2::scale_colour_manual(values = c(analysis = "#737373", buffer = "#E69F00", assessment = "#0072B2"), drop = FALSE) +
+    ggplot2::scale_colour_manual(values = c(analysis = "#737373", omitted = "#E69F00", assessment = "#0072B2"), drop = FALSE) +
     ggplot2::labs(colour = "Role", x = if (length(object$ctx$index)) object$ctx$index else "Observation", y = NULL) +
     ggplot2::theme_minimal()
 }

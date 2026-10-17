@@ -51,6 +51,29 @@ test_that("buffer centres are assessment observations and existing exclusions pe
   expect_equal(analysis_indices(buffered), list(c(1L, 5L, 6L, 8L, 9L)))
 })
 
+test_that("buffer metadata overrides receive constructor validation", {
+  data <- tibble::tibble(time = 1:6, site = c("a", NA, "a", "b", "b", "b"))
+  initial <- loo_folds(data)
+  expect_error(
+    buffer_folds(initial,
+      temporal = temporal_window(time_span(1)),
+      key = site, index = time, within = "key"
+    ),
+    "Membership column `site` contains missing values",
+    class = "naboer_error_missing"
+  )
+  expect_error(
+    buffer_folds(initial,
+      temporal = temporal_window(time_span(1)),
+      index = c(time, site)
+    ),
+    "at most one",
+    class = "naboer_error_argument"
+  )
+  expect_length(initial$ctx$index, 0)
+  expect_length(initial$ctx$key, 0)
+})
+
 test_that("combined spatial and temporal neighbourhoods implement set operations", {
   skip_if_not_installed("sf")
   skip_if_not_installed("units")

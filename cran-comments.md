@@ -1,28 +1,41 @@
-This is a development build (0.0.1.9000), not a CRAN submission.
+# 0.1.0 release candidate — not submitted
 
 ## Local test environment
 
 * macOS Tahoe 26.6.1, arm64, R 4.6.1
-* All optional adapters installed, including sf, cubble, tsibble, ape and rsample
+* All optional integrations installed, including mgcv 1.9-4, sf, units, clock,
+  tsibble, cubble, ape, rsample and ggplot2
 
 ## R CMD check
 
-`R CMD check --as-cran`: 0 errors, 0 warnings, 1 NOTE.
-Manual generation, examples, tests and vignette rebuilding were included.
+`R CMD build .`, then `R CMD check --as-cran naboer_0.1.0.tar.gz`:
 
-The incoming NOTE identifies a new submission, the deliberately unreleased
-version component 9000, and URLs for the not-yet-published pkgdown site and
-GitHub workflow. Resolve the public URLs and select version 0.1.0 before
-submission. These diagnostics are release prerequisites, not test failures.
+**0 errors, 0 warnings, 1 NOTE.**
+
+The only incoming NOTE is **New submission**, expected for a package not yet on
+CRAN. There are no development-version or unpublished-URL diagnostics.
+PDF/HTML manuals, examples, tests and all five vignettes (including rebuilding)
+were checked. No `--no-manual`, `--no-build-vignettes`, forced Suggests suppression
+or incoming-check suppression was used.
 
 ## Other validation
 
-509 test assertions pass without warnings or skips. Line coverage: 97.11%
-overall and 96.34% across core storage, construction, export and validation.
-The package website and all five articles build locally. Million-observation
-temporal and fixed-station spatiotemporal benchmarks pass independent membership
-checks, including end-to-end packed export for the latter.
+651 local assertions pass without warnings or skips. Coverage is 97.18% overall
+and 96.54% core. The reference site and articles build. Million-row temporal and
+space-time benchmarks pass direct references; the latter includes packed export
+and operating-system peak-memory measurement. Weighted Gaussian tests check
+block assessments and repeated scoring. Large-omission approximation results
+and scientific limits are documented in `tools/REVIEW.md`.
 
-Linux, Windows, R devel, oldrel and R 4.4 results must be recorded from GitHub
-Actions before submission. The local baseline above predates the remote runs;
-review the final results in the repository's GitHub Actions history.
+## Remote checks
+
+Pre-review implementation `92db241` passed release R checks on Linux, Windows
+and macOS, Linux devel/oldrel/R4.4, and the minimal-dependency job. Reviewed
+candidate runs will be recorded after pushing.
+
+Standard remote checks use `--no-manual`, omitting the PDF manual; they build and
+check vignettes. The full local candidate check includes the manual. The minimal
+job deliberately omits optional integrations and tests core/minimal contexts
+with `_R_CHECK_FORCE_SUGGESTS_=false`.
+
+No release tag, GitHub release or CRAN submission has been created.

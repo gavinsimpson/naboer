@@ -19,4 +19,6 @@ A ggplot object.
 \description{
 Spatial geometries are used when available, otherwise the temporal index or
 observation row is plotted. Only requested folds are expanded.
+The \code{omitted} role denotes omission-only observations; these can be dependence
+buffers, unavailable future observations, or other exclusions.
 }

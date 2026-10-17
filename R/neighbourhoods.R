@@ -66,6 +66,7 @@ buffer_folds <- function(x, spatial = NULL, temporal = NULL, phylogenetic = NULL
   ctx <- x$ctx
   if (!rlang::quo_is_null(rlang::enquo(key))) ctx$key <- select_cols(ctx$data, rlang::enquo(key), "key")
   if (!rlang::quo_is_null(rlang::enquo(index))) ctx$index <- select_cols(ctx$data, rlang::enquo(index), "index")
+  validate_context_columns(ctx)
   count <- sum(!vapply(list(spatial, temporal, phylogenetic), is.null, logical(1)))
   if (!count) abort_naboer("Supply at least one buffer window.")
   if (count > 1L && is.null(combine)) abort_naboer("Specify how multiple buffer windows combine.")

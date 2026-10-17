@@ -1,59 +1,92 @@
-# Development validation — 2026-10-17
+# Release-candidate validation — 2026-10-17
 
-The package remains version 0.0.1.9000 pending remote checks and release review.
+Candidate **0.1.0**. No release tag or CRAN submission has been made. See
+`tools/REVIEW.md` for the API/scientific review and documented limits.
 
-## Local checks
+## Local candidate checks
 
-- R 4.6.1, macOS Tahoe 26.6.1, arm64.
-- `devtools::test()`: 509 assertions, 0 failures/warnings/skips, with every
-  optional adapter installed. Tests include independent Gaussian penalised
-  refits, NCV/QNCV, Poisson and sampled discrete bam.
-- `covr::package_coverage()`: 97.11% overall line coverage, 96.34% across
-  folds/indices/nei/utils. `tools/coverage-gate.R` passes.
-- `R CMD build .`: all five HTML vignettes built.
-- `R CMD check --as-cran`: 0 errors, 0 warnings, 1 incoming NOTE (new submission,
-  deliberate development version and not-yet-published site/workflow URLs).
-  Includes PDF/HTML manuals, examples, tests and vignette rebuilding. No
-  `--no-manual`, `--no-build-vignettes` or force-Suggests suppression was used.
-- `pkgdown::build_site()`: reference pages and all five articles built. Installed
-  rmarkdown/pkgdown emit Pandoc deprecation messages for `--mathml`/`--mathjax`;
-  these are upstream command-line compatibility messages, not failed builds.
+- R 4.6.1, macOS Tahoe 26.6.1, arm64; Apple M1 Pro, 32 GiB RAM.
+- Optional adapters: mgcv 1.9-4, sf 1.1-3, clock 0.7.4, ape 5.8-1,
+  rsample 1.3.2, tsibble 1.2.0 and cubble 1.0.0. Spatial libraries:
+  GEOS 3.13.0, GDAL 3.8.5 and PROJ 9.5.1.
+- `devtools::test()`: **651 assertions, 0 failures/warnings/skips**, with all
+  optional integrations installed. Weighted Gaussian refits check block
+  assessments, repeated scoring and large omissions independently.
+- `covr::package_coverage()` (covr 3.6.5): **97.18% overall**, **96.54% core**
+  across folds/indices/nei/utils. `tools/coverage-gate.R` passes.
+- `R CMD build .`: all five vignettes built. Candidate tarball
+  `naboer_0.1.0.tar.gz` has MD5 `76ba4b53f8e377e5293bc7e3e4d3d24f`.
+- `R CMD check --as-cran naboer_0.1.0.tar.gz`: **0 errors, 0 warnings, 1 NOTE**.
+  The only incoming NOTE says **New submission**. No development-version or
+  unpublished-URL diagnostic remains. PDF/HTML manuals, examples, tests and
+  vignette rebuilding were included. No `--no-manual`, `--no-build-vignettes`,
+  force-Suggests suppression or incoming-check suppression was used.
+- `pkgdown::build_site()`: reference pages and all five articles built. Upstream
+  Pandoc deprecation messages for `--mathml`/`--mathjax` did not prevent building;
+  they are not R CMD check warnings. A representative manual page was visually
+  inspected.
+- Added R code/examples use quoted package names in `library()` calls.
 - `git diff --check`: clean.
 
-Initial sandboxed network checks could not resolve remote hosts; the successful
-full check and site build used approved network access. Initial source-check
-issues were fixed before the successful run.
+Full check/site commands used approved network access for incoming and URL
+checks. Formatter caching was disabled because the sandbox could not write the
+default user cache; this did not affect package checks.
 
-## Performance evidence
+## Million-row candidate benchmarks
 
-All scripts use R and are in `benchmarks/`. Heap figures below are R GC
-high-water estimates, not operating-system peak resident memory. Timings depend
-on hardware and dependencies; they are observations rather than guarantees.
+Both R scripts ran with `/usr/bin/time -l`. Successful timing runs used approved
+access because the sandbox blocked the utility's macOS `sysctl` query. The two
+processes briefly overlapped; timings are observations, not controlled speed
+comparisons or guarantees.
 
-| Fixture | Observations | Memberships | Construction | Packed output |
+| Fixture | Observations | Omission memberships | Construction | Packed output |
 |---|---:|---:|---:|---:|
-| Irregular unequal temporal series, sparse | 1,000,000 | 3,796,000 | ~0.30 s | 27.18 MB estimated |
-| Temporal whole-series exclusions | 1,000,000 | 1,078,979,374 | ~0.26 s | 4.33 GB estimated; guard rejects |
-| 1,000 fixed stations × 1,000 times | 1,000,000 | 14,972,012 | 14.37 s | 71,888,736 bytes measured |
+| Irregular unequal temporal series, sparse | 1,000,000 | 3,796,000 | 0.398 s | 27,184,000 bytes estimated |
+| Temporal whole-series exclusions | 1,000,000 | 1,078,979,374 | 0.338 s | 4,327,917,496 bytes estimated; guard rejects |
+| 1,000 stations × 1,000 times | 1,000,000 | 14,972,012 | 13.131 s | 71,888,736 bytes measured |
 
-The space-time fixture exported `nei` in 47.95 s, with export R heap high-water
-976.9 MiB. Five boundary/interior focal sets and their packed endpoints matched
-independent full-data scans. Moving-location, polygon and dense shared-station
-fixtures also passed direct references.
+Temporal process maximum RSS was **473,169,920 bytes**, peak footprint
+**456,721,320 bytes**. R heap high-water was 200.2 MiB for sparse and 272.1 MiB
+for dense construction. Sampled memberships matched direct scans.
 
-`benchmarks/approximation.R` at n=120 found Gaussian fixed-basis NCV and exact
-refits agreed to <=3.3e-13 relative discrepancy across the recorded widths.
-Poisson NCV discrepancies were approximately 0.23–0.49% on that fixture. These
-examples do not establish accuracy for other families or large omissions.
+Space-time export took **45.612 s**. Process maximum RSS was **1,429,880,832
+bytes**, peak footprint **1,301,382,824 bytes**. Export R heap high-water was
+**922.8 MiB**. Compact object size was 564,000,952 bytes, including canonical
+metadata. Five boundary/interior folds and packed endpoints matched full-data
+scans. No observation-level dense distance matrix was used.
 
-Use `fit$gcv.ubre` for the fitted criterion in these comparisons: mgcv can update
-`fit$NCV` during covariance calculations with its default neighbourhood policy.
+RSS, macOS footprint, R heap high-water and final packed bytes are different
+measurements. The 1 GiB guard limits estimated exported arrays, not total process
+memory. Independent review probes also matched 24 projected/geographic joint
+queries and 30 hex-grid subset fixtures against direct references.
 
-## Remaining release gates
+## Statistical evidence
 
-Run the supplied GitHub OS/R matrix and minimal-install job, configure Pages and
-Codecov, verify public URLs and uploads, review scientific examples, update the
-version, and review CRAN submission metadata. See `tools/RELEASE.md`. At the time
-of the local validation above, no remote push, release tag, CRAN submission or
-deployment had been performed. Subsequent workflow and deployment results are
-available in the repository's GitHub Actions history.
+`benchmarks/approximation.R` compared eight radii for each of two families at
+n=120. `tools/approximation-review.csv` records all results; `tools/REVIEW.md`
+interprets them. All refits converged. Gaussian NCV/QNCV matched exact
+fixed-basis refits to <=3.3e-13 relative criterion discrepancy. At the widest
+Poisson window (maximum omission 80.8%), NCV differed by 15.36% and QNCV by
+68.98%, with maximum link prediction error 0.805. These are stress-test results,
+not general accuracy guarantees or smoothing/interval coverage validation.
+
+Use `fit$gcv.ubre` for the fitted criterion: mgcv may update `fit$NCV` during
+covariance calculations under its default neighbourhood policy. The study keeps
+the full-data basis and penalty fixed.
+
+## Remote validation
+
+The pre-review implementation at `92db241` passed the complete push matrix and
+minimal-dependency job. Codecov processed coverage, and the root site deployed:
+
+- [R-CMD-check](https://github.com/gavinsimpson/naboer/actions/runs/38979324226)
+- [Coverage](https://github.com/gavinsimpson/naboer/actions/runs/38979324131)
+- [pkgdown](https://github.com/gavinsimpson/naboer/actions/runs/38979324237)
+- [Pages](https://github.com/gavinsimpson/naboer/actions/runs/38979553126)
+
+Candidate review changes require new remote runs; results will be recorded after
+pushing. Standard CI uses `--no-manual`, skipping the PDF manual, and builds and
+checks vignettes. The minimal job uses `_R_CHECK_FORCE_SUGGESTS_=false` and
+intentionally tests core/minimal contexts without optional adapters. The full
+release job is dispatch-only. The successful full local check above includes
+the manual and all optional integrations.

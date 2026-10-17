@@ -6,7 +6,10 @@
 #' @param data A data frame, tibble, sf object, tsibble or cubble.
 #' @param assessment,omission Lists of observation indices, one vector per fold.
 #'   Omission defaults to assessment.
-#' @param .by Tidy selection of independent domain columns.
+#' @param .by Tidy selection of independent domain columns. These constrain
+#'   generated dependence queries and qualify group/block identities. Custom
+#'   indices and existing omissions are retained as supplied; V-fold allocation
+#'   can combine whole blocks from several domains in one fold.
 #' @param id Optional tidy selection of a unique observation identifier.
 #' @return A compact `naboer_folds` object.
 #' @export
@@ -20,7 +23,7 @@ custom_folds <- function(data, assessment, omission = assessment, .by = NULL, id
     if (!is.list(sets)) abort_naboer("Supply membership as a list of numeric index vectors.", "indices")
     lapply(sets, function(z) {
       if (!is.numeric(z) || anyNA(z) || any(!is.finite(z)) ||
-          any(z != floor(z)) || any(z < 1 | z > ctx$n) || anyDuplicated(z)) {
+        any(z != floor(z)) || any(z < 1 | z > ctx$n) || anyDuplicated(z)) {
         abort_naboer("Indices must be unique whole numbers in the observation range.", "indices")
       }
       sort(as.integer(z))
@@ -31,10 +34,14 @@ custom_folds <- function(data, assessment, omission = assessment, .by = NULL, id
 
 new_folds <- function(ctx, assessment, omission, spec = list()) {
   assessment <- list_index(assessment)
-  x <- structure(list(ctx = ctx, assessment = assessment,
-                      omission = list_index(omission), spec = spec,
-                      labels = as.character(seq_len(index_nfold(assessment)))),
-                 class = "naboer_folds")
+  x <- structure(
+    list(
+      ctx = ctx, assessment = assessment,
+      omission = list_index(omission), spec = spec,
+      labels = as.character(seq_len(index_nfold(assessment)))
+    ),
+    class = "naboer_folds"
+  )
   validate_folds(x)
   x
 }
@@ -45,12 +52,12 @@ new_folds <- function(ctx, assessment, omission, spec = list()) {
 #' @export
 validate_folds <- function(x) {
   if (!inherits(x, "naboer_folds") || !is.list(x$ctx) ||
-      !inherits(x$assessment, "naboer_index") || !inherits(x$omission, "naboer_index")) {
+    !inherits(x$assessment, "naboer_index") || !inherits(x$omission, "naboer_index")) {
     abort_naboer("Expected a `naboer_folds` object.", "structure")
   }
   if (!is.numeric(x$ctx$n) || length(x$ctx$n) != 1L || is.na(x$ctx$n) ||
-      !is.finite(x$ctx$n) || x$ctx$n < 2 || x$ctx$n != floor(x$ctx$n) ||
-      !is.data.frame(x$ctx$data) || nrow(x$ctx$data) != x$ctx$n) {
+    !is.finite(x$ctx$n) || x$ctx$n < 2 || x$ctx$n != floor(x$ctx$n) ||
+    !is.data.frame(x$ctx$data) || nrow(x$ctx$data) != x$ctx$n) {
     abort_naboer("Fold observations and their stored row count do not match.", "structure")
   }
   validate_index(x$assessment, x$ctx$n)
@@ -60,8 +67,8 @@ validate_folds <- function(x) {
   assessment_sizes <- index_sizes(x$assessment)
   omission_sizes <- index_sizes(x$omission)
   if (anyNA(c(assessment_sizes, omission_sizes)) ||
-      any(!is.finite(c(assessment_sizes, omission_sizes))) ||
-      any(c(assessment_sizes, omission_sizes) < 0)) {
+    any(!is.finite(c(assessment_sizes, omission_sizes))) ||
+    any(c(assessment_sizes, omission_sizes) < 0)) {
     abort_naboer("Membership sizes must be finite and nonnegative.", "indices")
   }
   if (any(assessment_sizes < 1)) abort_naboer("Assessment sets must be nonempty.", "indices")
@@ -75,7 +82,9 @@ validate_folds <- function(x) {
       aa <- index_get(a, i)
       oo <- index_get(o, i)
       if (anyNA(c(aa, oo)) || any(c(aa, oo) < 1L | c(aa, oo) > x$ctx$n) ||
-          anyDuplicated(aa) || anyDuplicated(oo)) abort_naboer("Invalid or duplicated membership indices.", "indices")
+        anyDuplicated(aa) || anyDuplicated(oo)) {
+        abort_naboer("Invalid or duplicated membership indices.", "indices")
+      }
       if (!all(aa %in% oo)) abort_naboer("Assessment must be included in omission.", "indices")
     }
   }
@@ -97,6 +106,9 @@ loo_folds <- function(data, .by = NULL, id = NULL) {
 #' @param group Optional tidy selection of columns kept together during allocation.
 #' @param balance Balance observation counts rather than group counts.
 #' @param seed Optional local random seed; does not change the caller's RNG state.
+#' @details `.by` qualifies group identities; it does not create a separate
+#'   V-fold schedule within each domain. Every observation is assessed once
+#'   across the requested `v` folds.
 #' @return A compact `naboer_folds` object.
 #' @export
 vfold_folds <- function(data, v = 10L, group = NULL, balance = TRUE, seed = NULL,
@@ -105,7 +117,10 @@ vfold_folds <- function(data, v = 10L, group = NULL, balance = TRUE, seed = NULL
   cols <- select_cols(ctx$data, rlang::enquo(group), "group")
   if (length(cols) && anyNA(ctx$data[cols])) abort_naboer("Group columns contain missing values.", "missing")
   block <- if (length(cols)) group_ids(ctx$data, cols) else seq_len(ctx$n)
-  group_folds_from_blocks(ctx, block, v, balance, seed, list(strategy = "vfold"))
+  group_folds_from_blocks(
+    ctx, block, v, balance, seed,
+    list(strategy = "vfold", group = cols)
+  )
 }
 
 group_folds_from_blocks <- function(ctx, block, v = NULL, balance = TRUE, seed = NULL, spec = list()) {
@@ -132,9 +147,13 @@ group_folds_from_blocks <- function(ctx, block, v = NULL, balance = TRUE, seed =
       out
     })
     sets <- lapply(split(seq_along(units), assignment), function(j) sort(unlist(units[j], use.names = FALSE)))
-  } else sets <- unname(units)
+  } else {
+    sets <- unname(units)
+  }
   spec$blocks <- block
   spec$v <- v
+  spec$balance <- balance
+  if (!is.null(seed) || is.null(spec$seed)) spec$seed <- seed
   new_folds(ctx, sets, sets, spec)
 }
 
@@ -151,9 +170,13 @@ fold_data <- function(x) {
 }
 
 fold_selection <- function(x, folds) {
-  if (is.null(folds)) return(seq_len(index_nfold(x$assessment)))
+  if (is.null(folds)) {
+    return(seq_len(index_nfold(x$assessment)))
+  }
   if (!is.numeric(folds) || anyNA(folds) || any(folds != floor(folds)) ||
-      any(folds < 1 | folds > index_nfold(x$assessment))) abort_naboer("Invalid fold selection.", "indices")
+    any(folds < 1 | folds > index_nfold(x$assessment))) {
+    abort_naboer("Invalid fold selection.", "indices")
+  }
   as.integer(folds)
 }
 

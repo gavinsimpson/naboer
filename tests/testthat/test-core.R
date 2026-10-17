@@ -35,6 +35,9 @@ test_that("LOO and random V-fold designs cover observations exactly once", {
   expect_identical(.Random.seed, old)
   b <- vfold_folds(x, v = 3, group = group, seed = 12)
   expect_equal(assessment_indices(a), assessment_indices(b))
+  expect_identical(a$spec$group, "group")
+  expect_true(a$spec$balance)
+  expect_identical(a$spec$seed, 12)
   expect_equal(sort(unlist(assessment_indices(a), use.names = FALSE)), 1:12)
   expect_equal(lengths(assessment_indices(a)), rep(4L, 3))
   expect_true(all(vapply(assessment_indices(a), function(i) {
@@ -150,4 +153,28 @@ test_that("packed structure validation rejects broken endpoints and settings", {
   broken <- good
   broken$sample <- c(1L, 1L)
   expect_error(validate_nei(broken, 5), "sample")
+})
+
+test_that("mgcv compatibility checks precede unsupported one-fold and scalar sampling", {
+  data <- tibble::tibble(y = seq_len(8))
+  one <- custom_folds(data, list(2L), list(1:3))
+  expect_invisible(validate_folds(one))
+  expect_equal(assessment_indices(one), list(2L))
+  expect_error(as_nei(one), "at least two folds",
+    class = "naboer_error_compatibility"
+  )
+  expect_error(validate_nei(list(a = 1:3, ma = 3L, d = 2L, md = 1L), 8),
+    "at least two folds",
+    class = "naboer_error_compatibility"
+  )
+  buffered <- custom_folds(data, list(2L, 5L, 7L), list(1:3, 4:6, 6:8))
+  expect_error(as_nei(buffered, sample = 2), "Scalar `sample` is unsafe",
+    class = "naboer_error_compatibility"
+  )
+  packed <- as_nei(buffered)
+  packed$sample <- 2L
+  expect_error(validate_nei(packed, 8), "explicit fold numbers",
+    class = "naboer_error_compatibility"
+  )
+  expect_identical(as_nei(buffered, sample = c(1L, 3L))$sample, c(1L, 3L))
 })

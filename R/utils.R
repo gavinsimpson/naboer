@@ -76,13 +76,25 @@ prepare_data <- function(data, key = rlang::quo(NULL), index = rlang::quo(NULL),
   times <- if (rlang::quo_is_null(index)) inferred_index else select_cols(data, index, "index")
   bys <- select_cols(data, by, ".by")
   ids <- select_cols(data, id, "id")
-  if (length(times) > 1L || length(ids) > 1L) abort_naboer("`index` and `id` must each select at most one column.")
-  for (nm in unique(c(keys, times, bys, ids))) {
-    if (anyNA(data[[nm]])) abort_naboer(paste0("Membership column `", nm, "` contains missing values."), "missing")
-  }
-  if (length(ids) && anyDuplicated(data[[ids]])) abort_naboer("`id` must uniquely identify observations.", "alignment")
-  list(
+  ctx <- list(
     data = data, n = nrow(data), key = keys, index = times, by = bys,
     id = ids, domains = group_ids(data, bys), source = source
   )
+  validate_context_columns(ctx)
+  ctx
+}
+
+validate_context_columns <- function(ctx) {
+  if (length(ctx$index) > 1L || length(ctx$id) > 1L) {
+    abort_naboer("`index` and `id` must each select at most one column.")
+  }
+  for (nm in unique(c(ctx$key, ctx$index, ctx$by, ctx$id))) {
+    if (anyNA(ctx$data[[nm]])) {
+      abort_naboer(paste0("Membership column `", nm, "` contains missing values."), "missing")
+    }
+  }
+  if (length(ctx$id) && anyDuplicated(ctx$data[[ctx$id]])) {
+    abort_naboer("`id` must uniquely identify observations.", "alignment")
+  }
+  invisible(ctx)
 }

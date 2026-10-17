@@ -33,7 +33,9 @@ spatial_folds(
 \item{assignment}{Optional tidy selection of a column containing integer region
 row numbers. Required to resolve overlapping custom regions.}
 
-\item{origin}{Optional numeric x/y grid origin in the grid CRS. The default is
+\item{origin}{Optional numeric x/y grid anchor in the grid CRS. The grid
+extends in both directions from the anchor: square cell boundaries pass
+through it, and a hexagonal cell is centred on it. The default is
 the coordinate-wise floor of the bounding-box minimum divided by cell width.}
 
 \item{grid_crs}{Optional projected CRS for generating grid cells.}

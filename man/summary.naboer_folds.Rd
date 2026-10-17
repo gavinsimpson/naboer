@@ -14,6 +14,8 @@
 \value{
 A list with design counts, fold-size ranges and an observation-level
 assessment-frequency tibble. Summary never expands membership list-columns.
+\code{buffer_size} counts omission-only observations, including forecasting
+exclusions outside the assessment horizon or training window.
 }
 \description{
 Summarise a cross-validation design

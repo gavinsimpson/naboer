@@ -30,6 +30,9 @@ group_folds <- function(data, group, v = NULL, balance = TRUE, seed = NULL,
 #' Clustering is performed separately in each independent domain. Standardising
 #' predictors gives each nonconstant variable equal scale. Constant predictors
 #' are reported and excluded within each domain.
+#' For clustering, `v` is the number of clusters per domain, and each cluster
+#' forms one holdout. Clusters can have unequal sizes. `balance` only affects
+#' allocation of preexisting `strata`, not k-means clustering.
 #'
 #' @inheritParams group_folds
 #' @param predictors Numeric predictor columns, using tidy selection.
@@ -90,6 +93,12 @@ environmental_folds <- function(data, predictors = NULL, v = NULL,
       }
       x <- x[, keep, drop = FALSE]
       if (standardise) x <- scale(x)
+      if (any(!is.finite(x))) {
+        abort_naboer(paste0(
+          "Standardising environmental predictors produced nonfinite values. ",
+          "Rescale extreme predictor values before clustering."
+        ))
+      }
       distinct <- nrow(unique(x))
       if (distinct < v) {
         abort_naboer("Each domain must have at least `v` distinct predictor rows.")
@@ -107,7 +116,7 @@ environmental_folds <- function(data, predictors = NULL, v = NULL,
     ctx, block,
     spec = list(
       strategy = "environmental", predictors = predictors,
-      standardise = standardise, excluded = excluded, seed = seed
+      standardise = standardise, excluded = excluded, clusters = v, seed = seed
     )
   )
 }
@@ -238,11 +247,48 @@ check_ecological_columns <- function(data, cols, arg) {
 
 validate_tree <- function(tree) {
   need_package("ape")
-  if (!inherits(tree, "phylo") || !length(tree$tip.label) ||
+  if (!inherits(tree, "phylo") || !is.character(tree$tip.label) || !length(tree$tip.label) ||
     anyNA(tree$tip.label) || anyDuplicated(tree$tip.label)) {
     abort_naboer("`tree` must be a phylo object with unique nonmissing tip labels.")
   }
-  if (is.null(tree$edge.length) || length(tree$edge.length) != nrow(tree$edge) ||
+  # ape algorithms rely on a connected, acyclic tree numbered with tips first
+  # and root n_tip + 1. Validate topology before calling them or traversing
+  # descendant clades: malformed cycles can otherwise hang or mislabel taxa.
+  n_tip <- length(tree$tip.label)
+  if (!is.numeric(tree$Nnode) || length(tree$Nnode) != 1L ||
+    is.na(tree$Nnode) || !is.finite(tree$Nnode) || tree$Nnode < 1 ||
+    tree$Nnode != floor(tree$Nnode) || tree$Nnode > .Machine$integer.max - n_tip) {
+    abort_naboer("The tree must have a valid internal-node count.")
+  }
+  total <- n_tip + tree$Nnode
+  edge <- tree$edge
+  if (!is.matrix(edge) || ncol(edge) != 2L || !is.numeric(edge) ||
+    anyNA(edge) || any(!is.finite(edge)) || any(edge != floor(edge)) ||
+    any(edge < 1 | edge > total) || nrow(edge) != total - 1L ||
+    any(edge[, 1L] <= n_tip) || anyDuplicated(edge[, 2L]) ||
+    !setequal(edge[, 2L], setdiff(seq_len(total), n_tip + 1L))) {
+    abort_naboer("The tree must have valid, uniquely parented edges and root n_tip + 1.")
+  }
+  parents <- integer(total)
+  parents[edge[, 2L]] <- edge[, 1L]
+  state <- integer(total)
+  state[[n_tip + 1L]] <- 2L
+  for (start in seq_len(total)) {
+    node <- start
+    while (state[[node]] == 0L) {
+      state[[node]] <- 1L
+      node <- parents[[node]]
+    }
+    if (state[[node]] == 1L) {
+      abort_naboer("Tree edges must be connected and acyclic.")
+    }
+    node <- start
+    while (state[[node]] == 1L) {
+      state[[node]] <- 2L
+      node <- parents[[node]]
+    }
+  }
+  if (!is.numeric(tree$edge.length) || length(tree$edge.length) != nrow(edge) ||
     any(!is.finite(tree$edge.length)) || any(tree$edge.length < 0)) {
     abort_naboer("The tree must have finite, nonnegative lengths for every branch.")
   }

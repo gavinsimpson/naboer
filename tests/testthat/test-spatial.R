@@ -119,7 +119,7 @@ test_that("square and hexagonal blocks are deterministic and respect domains", {
   }
   expect_error(spatial_folds(points, units::set_units(0, "m")), "positive")
   expect_error(spatial_folds(points, units::set_units(1, "m"), origin = 1), "x and y")
-  expect_error(spatial_folds(points, units::set_units(1, "m"), origin = c(1, 1)), "origin")
+  expect_error(spatial_folds(points, units::set_units(1, "m"), origin = c(Inf, 1)), "x and y")
 })
 
 test_that("custom regions resolve shared boundaries but reject interior overlaps", {
@@ -284,4 +284,145 @@ test_that("sf's active geometry is respected when several sfc columns exist", {
     spatial_sets(prepare_data(points), units::set_units(1, "m")),
     list(1:2, 1:2, 3L)
   )
+})
+
+test_that("precision metadata cannot discard focal observations or change radius distances", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  points <- spatial_points(c(0.51, 0.51, 1.49, 10))
+  sf::st_geometry(points) <- sf::st_set_precision(sf::st_geometry(points), 1)
+  original <- sf::st_geometry(points)
+  for (width in c(0, 0.1, 1)) {
+    radius <- units::set_units(width, "m", mode = "standard")
+    folds <- neighbourhoods(points, spatial = spatial_window(radius))
+    distances <- sf::st_distance(points)
+    expected <- lapply(seq_len(nrow(points)), function(i) unname(which(distances[i, ] <= radius)))
+    expect_equal(omission_indices(folds), expected)
+    expect_identical(fold_data(folds)$geometry, original)
+  }
+  blocks <- spatial_folds(points, units::set_units(1, "m"), origin = c(0, 0))
+  expect_equal(index_get(blocks$assessment, 1), 1:2)
+  expect_equal(index_get(blocks$assessment, 2), 3L)
+})
+
+test_that("fixed grid anchors extend into negative coordinates without changing cells", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  points <- spatial_points(c(-3.5, -2.5, -1.5, 0.5, 1.5, 4.5))
+  folds <- spatial_folds(points, units::set_units(2, "m"), origin = c(0, 0))
+  expect_equal(assessment_indices(folds), list(1:2, 3L, 4:5, 6L))
+  translated <- spatial_folds(points, units::set_units(2, "m"), origin = c(20, 20))
+  expect_equal(assessment_indices(translated), assessment_indices(folds))
+  expect_equal(folds$spec$origin, c(0, 0))
+  # With an explicit anchor, subsetting cannot move the grid underneath the data.
+  for (shape in c("square", "hexagonal")) {
+    all <- spatial_folds(points, units::set_units(2, "m"), origin = c(0, 0), shape = shape)
+    subset <- spatial_folds(points[-1, ], units::set_units(2, "m"), origin = c(0, 0), shape = shape)
+    same <- outer(all$spec$blocks[-1], all$spec$blocks[-1], `==`)
+    expect_equal(outer(subset$spec$blocks, subset$spec$blocks, `==`), same)
+  }
+})
+
+test_that("grid-edge observations keep their cell after subsetting", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  points <- spatial_points(c(-2, 0, 0.1, 2, 2.1, 4), c(0, 0, 0, 0, 0, 0))
+  for (shape in c("square", "hexagonal")) {
+    full <- spatial_folds(points, units::set_units(2, "m"), origin = c(0, 0), shape = shape)
+    reduced <- spatial_folds(points[-1, ], units::set_units(2, "m"), origin = c(0, 0), shape = shape)
+    expected <- outer(full$spec$blocks[-1], full$spec$blocks[-1], `==`)
+    expect_equal(outer(reduced$spec$blocks, reduced$spec$blocks, `==`), expected)
+  }
+})
+
+test_that("hexagonal lattice phase stays fixed across changing extents", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  set.seed(314)
+  for (iteration in seq_len(10)) {
+    xy <- matrix(runif(60, -10, 10), ncol = 2)
+    points <- spatial_points(xy[, 1], xy[, 2])
+    full <- spatial_folds(points, units::set_units(3, "m"),
+      origin = c(0.5, -0.7), shape = "hexagonal"
+    )
+    keep <- sort(sample.int(30, 20))
+    subset <- spatial_folds(points[keep, ], units::set_units(3, "m"),
+      origin = c(0.5, -0.7), shape = "hexagonal"
+    )
+    expect_equal(
+      outer(subset$spec$blocks, subset$spec$blocks, `==`),
+      outer(full$spec$blocks[keep], full$spec$blocks[keep], `==`)
+    )
+  }
+  # Distance across opposite edges is the specified width, not hex side length.
+  cells <- spatial_hex_grid(sf::st_geometry(points), 3, c(0, 0))
+  expected_area <- sqrt(3) / 2 * 3^2
+  expect_equal(as.numeric(sf::st_area(cells)), rep(expected_area, length(cells)), tolerance = 1e-12)
+})
+
+test_that("grid allocations are checked before generating excessive cell counts", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  points <- spatial_points(c(0, 2), c(0, 2))
+  for (shape in c("square", "hexagonal")) {
+    expect_error(spatial_folds(points, units::set_units(1e-12, "m"), shape = shape),
+      class = "naboer_error_overflow"
+    )
+  }
+  old <- options(naboer.max_bytes = 1)
+  on.exit(options(old))
+  for (shape in c("square", "hexagonal")) {
+    expect_error(spatial_folds(points, units::set_units(1, "m"), shape = shape),
+      class = "naboer_error_memory"
+    )
+  }
+})
+
+test_that("antimeridian distances work and geographic grids need an explicit projection", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  points <- spatial_points(c(179.9, -179.9, 178), crs = 4326)
+  expect_equal(
+    spatial_sets(prepare_data(points), units::set_units(30, "km")),
+    list(1:2, 1:2, 3L)
+  )
+  expect_error(spatial_folds(points, units::set_units(50, "km")), "grid_crs.*antimeridian")
+  projection <- "+proj=aeqd +lon_0=180 +lat_0=0 +datum=WGS84 +units=m"
+  expect_s3_class(
+    spatial_folds(points, units::set_units(50, "km"), grid_crs = projection),
+    "naboer_folds"
+  )
+})
+
+test_that("spatiotemporal designs retain the parameters needed to reproduce blocks", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  points <- spatial_points(c(-1, -1, 3, 3),
+    date = as.Date("2020-01-01") + c(0, 4, 0, 4)
+  )
+  time_origin <- as.Date("2020-01-01")
+  folds <- spatiotemporal_folds(points,
+    spatial_size = units::set_units(2, "m"), temporal_size = time_span(2, "days"),
+    index = date, spatial_origin = c(0, 0), temporal_origin = time_origin,
+    shape = "hexagonal", within = "domain"
+  )
+  expect_equal(folds$spec$shape, "hexagonal")
+  expect_equal(folds$spec$spatial_origin, c(0, 0))
+  expect_equal(folds$spec$temporal_origin, time_origin)
+  expect_equal(folds$spec$within, "domain")
+  expect_equal(folds$spec$grid_crs, sf::st_crs(points))
+})
+
+test_that("block metadata report the engine and CRS actually used after projection", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  points <- spatial_points(c(12, 12.01, 12.02), c(55, 55.01, 55.02), crs = 4326)
+  points$date <- as.Date("2020-01-01") + 0:2
+  for (folds in list(
+    spatial_folds(points, units::set_units(500, "m")),
+    spatiotemporal_folds(points, units::set_units(500, "m"), time_span(1, "days"), index = date)
+  )) {
+    expect_identical(folds$spec$spatial_engine, "GEOS")
+    expect_false(sf::st_is_longlat(folds$spec$grid_crs))
+  }
 })

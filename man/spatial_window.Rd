@@ -16,4 +16,6 @@ A spatial window specification.
 \description{
 Distances are measured between the original geometries, including polygons.
 The current sf spherical/ellipsoidal setting is respected and never changed.
+Distances use stored coordinates without implicit precision rounding. To use
+rounded coordinates, transform them explicitly before constructing folds.
 }

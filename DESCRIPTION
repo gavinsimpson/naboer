@@ -1,5 +1,5 @@
 Package: naboer
-Version: 0.0.1.9000
+Version: 0.1.0
 Title: Dependence-Aware Cross-Validation Neighbourhoods
 Authors@R: c(person(given = "Gavin L.", family = "Simpson",
                     email = "ucfagls@gmail.com",

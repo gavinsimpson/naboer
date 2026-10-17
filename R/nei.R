@@ -3,9 +3,16 @@
 #' The result is a plain list of one-based indices, with cumulative endpoints.
 #' No rescaling of repeated assessments or covariance settings is performed.
 #' Neighbourhood sampling preserves the complete structure needed by bam.
+#' Export requires at least two folds for compatibility with the tested mgcv
+#' integration. Single native folds remain usable for inspection and rsample.
+#' In mgcv 1.9-4, scalar sampling incorrectly samples packed endpoints for
+#' nonsingleton omissions. For these designs, supply at least two explicit fold
+#' numbers, or omit `sample` to use every fold. This compatibility restriction
+#' is enforced without requiring mgcv to be installed.
 #' @param x A `naboer_folds` object.
 #' @param sample Optional bam sampling specification: one positive count, or a
-#'   vector of neighbourhood numbers. A length-one value always means a count.
+#'   vector of neighbourhood numbers. A length-one value always means a count
+#'   and is supported only when every omission set is a singleton.
 #' @param jackknife Optional logical gam covariance setting. `NULL` preserves
 #'   mgcv's default by omitting the field.
 #' @param max_bytes Maximum estimated packed output size in bytes; defaults to
@@ -27,6 +34,7 @@ as_nei <- function(x, sample = NULL, jackknife = NULL,
     if (!aligned) abort_naboer("Data order or identifiers do not match the fold data. Rebuild folds after changing observations.", "alignment")
   }
   m <- index_nfold(x$assessment)
+  check_nei_fold_count(m)
   if (!is.null(jackknife) && (!is.logical(jackknife) || length(jackknife) != 1L || is.na(jackknife))) abort_naboer("`jackknife` must be NULL, TRUE or FALSE.")
   if (!is.null(sample)) {
     if (!is.numeric(sample) || !length(sample) || anyNA(sample) || any(!is.finite(sample)) ||
@@ -35,6 +43,7 @@ as_nei <- function(x, sample = NULL, jackknife = NULL,
       abort_naboer("`sample` must be a positive fold count or unique valid fold indices.")
     }
     sample <- as.integer(sample)
+    check_nei_scalar_sample(sample, index_sizes(x$omission))
   }
   if (!is.numeric(max_bytes) || length(max_bytes) != 1L || is.na(max_bytes) || max_bytes < 0) abort_naboer("`max_bytes` must be nonnegative or Inf.")
   lengths <- c(sum(index_sizes(x$assessment)), sum(index_sizes(x$omission)))
@@ -71,6 +80,7 @@ validate_nei <- function(x, n) {
     tail(x$md, 1) != length(x$d) || any(x$a > n) || any(x$d > n)) {
     abort_naboer("Packed endpoints or observation bounds are invalid.", "indices")
   }
+  check_nei_fold_count(length(x$ma))
   for (i in seq_along(x$ma)) {
     a <- x$a[seq.int(if (i == 1L) 1L else x$ma[[i - 1L]] + 1L, x$ma[[i]])]
     d <- x$d[seq.int(if (i == 1L) 1L else x$md[[i - 1L]] + 1L, x$md[[i]])]
@@ -83,6 +93,25 @@ validate_nei <- function(x, n) {
       any(s < 1 | s > length(x$ma)) || (length(s) > 1L && anyDuplicated(s))) {
       abort_naboer("Invalid sample setting.")
     }
+    check_nei_scalar_sample(s, diff(c(0, x$ma)))
   }
   invisible(x)
+}
+
+check_nei_fold_count <- function(n) {
+  if (n < 2L) {
+    abort_naboer(paste0(
+      "The tested mgcv integration requires at least two folds. ",
+      "Keep single folds native for inspection or convert them with as_rset()."
+    ), "compatibility")
+  }
+}
+
+check_nei_scalar_sample <- function(sample, omission_sizes) {
+  if (length(sample) == 1L && any(omission_sizes != 1)) {
+    abort_naboer(paste0(
+      "Scalar `sample` is unsafe for nonsingleton omissions in mgcv 1.9-4. ",
+      "Supply at least two explicit fold numbers, or omit `sample` to use all folds."
+    ), "compatibility")
+  }
 }

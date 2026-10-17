@@ -16,7 +16,8 @@ as_nei(
 \item{x}{A \code{naboer_folds} object.}
 
 \item{sample}{Optional bam sampling specification: one positive count, or a
-vector of neighbourhood numbers. A length-one value always means a count.}
+vector of neighbourhood numbers. A length-one value always means a count
+and is supported only when every omission set is a singleton.}
 
 \item{jackknife}{Optional logical gam covariance setting. \code{NULL} preserves
 mgcv's default by omitting the field.}
@@ -34,4 +35,10 @@ A plain list with \code{a}, \code{ma}, \code{d}, \code{md}, and optional setting
 The result is a plain list of one-based indices, with cumulative endpoints.
 No rescaling of repeated assessments or covariance settings is performed.
 Neighbourhood sampling preserves the complete structure needed by bam.
+Export requires at least two folds for compatibility with the tested mgcv
+integration. Single native folds remain usable for inspection and rsample.
+In mgcv 1.9-4, scalar sampling incorrectly samples packed endpoints for
+nonsingleton omissions. For these designs, supply at least two explicit fold
+numbers, or omit \code{sample} to use every fold. This compatibility restriction
+is enforced without requiring mgcv to be installed.
 }

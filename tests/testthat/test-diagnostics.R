@@ -75,4 +75,13 @@ test_that("forecast summaries respect unsorted multiple assessment ranges", {
   f <- forecast_folds(x, index = time, initial = time_span(3), horizon = time_span(2))
   expected <- tabulate(unlist(assessment_indices(f), use.names = FALSE), nrow(x))
   expect_equal(summary(f)$assessment_frequency$frequency, expected)
+  skip_if_not_installed("ggplot2")
+  plot <- ggplot2::autoplot(f, folds = 1L)
+  roles <- as.character(plot$data$.naboer_role)
+  expect_equal(which(roles == "analysis"), analysis_indices(f, 1L)[[1L]])
+  expect_equal(which(roles == "assessment"), assessment_indices(f, 1L)[[1L]])
+  expect_equal(which(roles == "omitted"), setdiff(
+    omission_indices(f, 1L)[[1L]],
+    assessment_indices(f, 1L)[[1L]]
+  ))
 })

@@ -2,6 +2,8 @@
 #'
 #' Distances are measured between the original geometries, including polygons.
 #' The current sf spherical/ellipsoidal setting is respected and never changed.
+#' Distances use stored coordinates without implicit precision rounding. To use
+#' rounded coordinates, transform them explicitly before constructing folds.
 #' @param radius A nonnegative scalar with physical distance units, for example
 #'   `units::set_units(5, "km")`.
 #' @return A spatial window specification.
@@ -27,6 +29,10 @@ spatial_geometry <- function(ctx) {
     abort_naboer("Spatial operations require one active sf geometry column.", "geometry")
   }
   geom <- ctx$data[[cols]]
+  # GEOS predicates may apply sf precision rounding whereas st_distance() uses
+  # stored coordinates. Use one coordinate interpretation throughout queries;
+  # the canonical data retain their original geometry and precision metadata.
+  geom <- sf::st_set_precision(geom, 0)
   if (is.na(sf::st_crs(geom))) {
     abort_naboer("Spatial operations require a declared CRS; set it with sf::st_set_crs().", "geometry")
   }
@@ -52,20 +58,25 @@ spatial_membership <- function(ctx, window) {
   membership <- vector("list", length(unique_geom))
   batch_size <- getOption("naboer.spatial_batch_size", 1000L)
   if (!is.numeric(batch_size) || length(batch_size) != 1L ||
-    !is.finite(batch_size) || batch_size < 1) {
-    abort_naboer("`naboer.spatial_batch_size` must be a positive number.")
+    !is.finite(batch_size) || batch_size < 1 ||
+    batch_size != floor(batch_size) || batch_size > .Machine$integer.max) {
+    abort_naboer("`naboer.spatial_batch_size` must be a positive integer within the R index range.")
   }
   if (!sf::st_is_longlat(geom)) {
     radius <- as.numeric(units::set_units(window$radius, sf::st_crs(geom)$ud_unit,
       mode = "standard"
     ))
-    boxes <- lapply(unique_geom, function(g) {
-      b <- sf::st_bbox(g)
-      xx <- c(b[[1L]] - radius, b[[3L]] + radius)
-      yy <- c(b[[2L]] - radius, b[[4L]] + radius)
-      sf::st_polygon(list(cbind(xx[c(1, 2, 2, 1, 1)], yy[c(1, 1, 2, 2, 1)])))
-    })
-    boxes <- sf::st_sfc(boxes, crs = sf::st_crs(geom))
+    boxes <- if (radius == 0) {
+      unique_geom
+    } else {
+      lapply(unique_geom, function(g) {
+        b <- sf::st_bbox(g)
+        xx <- c(b[[1L]] - radius, b[[3L]] + radius)
+        yy <- c(b[[2L]] - radius, b[[4L]] + radius)
+        sf::st_polygon(list(cbind(xx[c(1, 2, 2, 1, 1)], yy[c(1, 1, 2, 2, 1)])))
+      })
+    }
+    if (!inherits(boxes, "sfc")) boxes <- sf::st_sfc(boxes, crs = sf::st_crs(geom))
   }
   for (start in seq.int(1L, length(unique_geom), by = as.integer(batch_size))) {
     rows <- seq.int(start, min(length(unique_geom), start + batch_size - 1L))
@@ -137,7 +148,9 @@ spatial_membership <- function(ctx, window) {
 #' @param regions Optional sf/sfc polygon regions instead of a generated grid.
 #' @param assignment Optional tidy selection of a column containing integer region
 #'   row numbers. Required to resolve overlapping custom regions.
-#' @param origin Optional numeric x/y grid origin in the grid CRS. The default is
+#' @param origin Optional numeric x/y grid anchor in the grid CRS. The grid
+#'   extends in both directions from the anchor: square cell boundaries pass
+#'   through it, and a hexagonal cell is centred on it. The default is
 #'   the coordinate-wise floor of the bounding-box minimum divided by cell width.
 #' @param grid_crs Optional projected CRS for generating grid cells.
 #' @param v Optional number of folds to assign whole blocks to.
@@ -165,7 +178,9 @@ spatial_folds <- function(data, size = NULL, shape = c("square", "hexagonal"),
     spec = list(
       strategy = "spatial", size = size,
       shape = shape, origin = attr(block, "origin"),
-      spatial_engine = spatial_engine(spatial_geometry(ctx))
+      regions = regions, assignment = attr(block, "assignment"),
+      grid_crs = attr(block, "grid_crs"),
+      spatial_engine = attr(block, "spatial_engine")
     )
   )
 }
@@ -180,7 +195,7 @@ spatial_blocks <- function(ctx, size = NULL, shape = "square", regions = NULL,
     if (!inherits(regions, c("sf", "sfc"))) {
       abort_naboer("`regions` must be an sf or sfc polygon object.")
     }
-    regions <- sf::st_geometry(regions)
+    regions <- sf::st_set_precision(sf::st_geometry(regions), 0)
     if (is.na(sf::st_crs(regions)) || !length(regions) ||
       any(sf::st_is_empty(regions)) || !all(sf::st_is_valid(regions)) ||
       !all(sf::st_geometry_type(regions) %in% c("POLYGON", "MULTIPOLYGON"))) {
@@ -220,6 +235,9 @@ spatial_blocks <- function(ctx, size = NULL, shape = "square", regions = NULL,
     }
     if (sf::st_is_longlat(geom)) {
       bb <- sf::st_bbox(geom)
+      if (bb[[3]] - bb[[1]] > 180) {
+        abort_naboer("This geographic extent spans more than 180 degrees of longitude; supply an appropriate projected `grid_crs` to resolve the grid across the antimeridian.", "geometry")
+      }
       projection <- sprintf(
         "+proj=aeqd +lat_0=%.10f +lon_0=%.10f +datum=WGS84 +units=m",
         mean(bb[c(2, 4)]), mean(bb[c(1, 3)])
@@ -237,19 +255,22 @@ spatial_blocks <- function(ctx, size = NULL, shape = "square", regions = NULL,
       abort_naboer("`origin` must contain finite x and y grid coordinates.")
     }
     bb <- sf::st_bbox(geom)
-    if (any(origin > bb[c(1, 2)])) {
-      abort_naboer("`origin` must not lie above/right of the data bounding-box minimum.")
+    if (shape == "hexagonal") {
+      regions <- spatial_hex_grid(geom, width, origin)
+    } else {
+      # Include the lower adjacent cell so boundary assignments do not depend
+      # on which observation happens to define the data extent.
+      offset <- origin + (floor((as.numeric(bb[c(1, 2)]) - origin) / width) - 1) * width
+      bb[c(3, 4)] <- bb[c(3, 4)] + width * 1e-8
+      cells <- prod(ceiling((as.numeric(bb[c(3, 4)]) - offset) / width))
+      spatial_check_grid_size(cells)
+      regions <- sf::st_make_grid(sf::st_as_sfc(bb), cellsize = width, offset = offset)
     }
-    # Expand zero-width extents and include a final row/column at exact boundaries.
-    bb[c(3, 4)] <- pmax(bb[c(3, 4)] + width * 1e-8, origin + width)
-    regions <- sf::st_make_grid(sf::st_as_sfc(bb),
-      cellsize = width,
-      offset = origin, square = shape == "square"
-    )
   }
   if (length(assigned)) {
     block <- ctx$data[[assigned]]
-    if (!is.numeric(block) || anyNA(block) || any(block != as.integer(block)) ||
+    if (!is.numeric(block) || anyNA(block) || any(!is.finite(block)) ||
+      any(block != floor(block)) ||
       any(block < 1L | block > length(regions))) {
       abort_naboer("`assignment` must contain valid integer region row numbers.")
     }
@@ -266,6 +287,9 @@ spatial_blocks <- function(ctx, size = NULL, shape = "square", regions = NULL,
   }
   block <- group_ids(tibble::tibble(domain = ctx$domains, block = block), c("domain", "block"))
   attr(block, "origin") <- origin
+  attr(block, "grid_crs") <- sf::st_crs(geom)
+  attr(block, "assignment") <- assigned
+  attr(block, "spatial_engine") <- if (sf::st_is_longlat(geom) && sf::sf_use_s2()) "s2" else "GEOS"
   block
 }
 
@@ -311,7 +335,12 @@ spatiotemporal_folds <- function(data, spatial_size = NULL, temporal_size = NULL
     spec = list(
       strategy = "spatiotemporal", mode = mode,
       spatial_size = spatial_size,
-      temporal_size = temporal_size
+      temporal_size = temporal_size, shape = shape, regions = regions,
+      assignment = if (!is.null(space)) attr(space, "assignment") else character(),
+      spatial_origin = if (!is.null(space)) attr(space, "origin"),
+      temporal_origin = temporal_origin, within = within,
+      grid_crs = if (!is.null(space)) attr(space, "grid_crs"),
+      spatial_engine = if (!is.null(space)) attr(space, "spatial_engine")
     )
   )
 }
@@ -323,8 +352,10 @@ cubble_data <- function(data) {
   index <- cubble::index_var(data)
   nested <- inherits(data, "spatial_cubble_df")
   spatial <- tibble::as_tibble(cubble::spatial(data))
+  if (!length(key) || !all(key %in% names(spatial)) || anyDuplicated(spatial[key])) {
+    abort_naboer("Cubble spatial keys must uniquely identify spatial records.", "alignment")
+  }
   if (nested) {
-    lengths <- lengths(data$ts)
     lengths <- vapply(data$ts, nrow, integer(1))
     source <- tibble::tibble(
       .source_row = rep(seq_len(nrow(data)), lengths),
@@ -333,14 +364,14 @@ cubble_data <- function(data) {
     long <- tibble::as_tibble(cubble::face_temporal(data))
   } else {
     long <- tibble::as_tibble(data)
-    site <- match(long[[key]], spatial[[key]])
+    site <- vctrs::vec_match(long[key], spatial[key])
     if (anyNA(site)) abort_naboer("Cubble observations have unmatched spatial keys.")
     source <- tibble::tibble(
       .source_row = seq_len(nrow(long)),
       .source_subrow = NA_integer_, .spatial_row = site
     )
   }
-  site <- match(long[[key]], spatial[[key]])
+  site <- vctrs::vec_match(long[key], spatial[key])
   for (column in setdiff(names(spatial), names(long))) {
     long[[column]] <- spatial[[column]][site]
   }
@@ -356,10 +387,15 @@ cubble_data <- function(data) {
       }
       converted <- sf::st_as_sf(long,
         coords = coords, crs = original_crs,
-        remove = FALSE
+        remove = FALSE, na.fail = FALSE
       )
       long <- tibble::as_tibble(converted)
     }
+  }
+  active <- attr(long, "sf_column", exact = TRUE)
+  if (is.null(active)) active <- attr(spatial, "sf_column", exact = TRUE)
+  if (length(active) == 1L && active %in% names(long) && inherits(long[[active]], "sfc")) {
+    attr(long, "sf_column") <- active
   }
   list(data = long, key = key, index = index, source = source)
 }
@@ -431,4 +467,54 @@ spatiotemporal_membership <- function(ctx, spatial, window, within = "domain") {
     ),
     class = c("naboer_multiranges", "naboer_index")
   )
+}
+
+# A global pointy-top lattice. Each shared vertex is computed from identical
+# integer lattice coordinates, avoiding gaps from separately added offsets.
+spatial_hex_grid <- function(geometry, width, origin) {
+  bb <- sf::st_bbox(geometry)
+  side <- width / sqrt(3)
+  ystep <- 1.5 * side
+  first <- ceiling((bb[[2]] - origin[[2]] - side) / ystep)
+  last <- floor((bb[[4]] - origin[[2]] + side) / ystep)
+  spatial_check_grid_size(last - first + 1)
+  row <- seq.int(first, last)
+  parity <- row %% 2
+  left <- ceiling((bb[[1]] - origin[[1]]) / width - 0.5 - parity / 2)
+  right <- floor((bb[[3]] - origin[[1]]) / width + 0.5 - parity / 2)
+  counts <- pmax(0, right - left + 1)
+  spatial_check_grid_size(sum(counts))
+  # Rows are ordered south to north, and columns west to east. This ordering is
+  # independent of the extent and resolves shared-boundary ties reproducibly.
+  lattice_y <- rep.int(3 * row, counts)
+  lattice_x <- unlist(lapply(seq_along(row), function(i) {
+    if (!counts[[i]]) {
+      return(numeric())
+    }
+    2 * seq.int(left[[i]], right[[i]]) + parity[[i]]
+  }), use.names = FALSE)
+  dx <- c(1, 0, -1, -1, 0, 1, 1)
+  dy <- c(1, 2, 1, -1, -2, -1, 1)
+  cells <- lapply(seq_along(lattice_x), function(i) {
+    sf::st_polygon(list(cbind(
+      origin[[1]] + (lattice_x[[i]] + dx) * width / 2,
+      origin[[2]] + (lattice_y[[i]] + dy) * side / 2
+    )))
+  })
+  sf::st_sfc(cells, crs = sf::st_crs(geometry))
+}
+
+spatial_check_grid_size <- function(n) {
+  limit <- getOption("naboer.max_bytes", 1024^3)
+  if (!is.numeric(limit) || length(limit) != 1L || is.na(limit) || limit < 0) {
+    abort_naboer("`naboer.max_bytes` must be nonnegative or Inf.")
+  }
+  if (!is.finite(n) || n > .Machine$integer.max) {
+    abort_naboer("The spatial grid exceeds R's index range; increase `size` or reduce the extent.", "overflow")
+  }
+  # Conservative allowance for each polygon, its coordinates, and work arrays.
+  if (n * 1024 > limit) {
+    abort_naboer("The spatial grid exceeds `naboer.max_bytes`; increase `size`, reduce the extent, or explicitly raise the limit.", "memory")
+  }
+  invisible(n)
 }

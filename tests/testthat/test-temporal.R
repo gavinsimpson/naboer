@@ -269,3 +269,156 @@ test_that("POSIXlt indices retain calendar timezone semantics", {
   blocks <- temporal_blocks(ctx, time_span(1, "days", "calendar"))
   expect_equal(blocks, 1:3)
 })
+
+test_that("zero calendar shifts preserve already resolved repeated clock times", {
+  skip_if_not_installed("clock")
+  instants <- as.POSIXct(c("2024-10-27 00:30:00", "2024-10-27 01:30:00", "2024-10-28 01:30:00"), tz = "UTC")
+  attr(instants, "tzone") <- "Europe/Copenhagen"
+  for (resolution in c("error", "earliest", "latest")) {
+    zero <- time_span(0, "days", "calendar", ambiguous = resolution)
+    expect_identical(temporal_shift(instants, zero), instants)
+    folded <- neighbourhoods(tibble::tibble(time = instants),
+      temporal = temporal_window(zero), index = time
+    )
+    expect_equal(omission_indices(folded), as.list(1:3))
+  }
+  shifts <- temporal_shift(rep(instants[2], 2), time_span(1, "days", "calendar"), c(0, 1))
+  expect_equal(as.numeric(shifts), as.numeric(instants[c(2, 3)]))
+  # A known origin in the second repeated hour remains a valid cutoff when
+  # the default zero gap accompanies a positive calendar horizon.
+  forecast <- forecast_folds(tibble::tibble(time = instants),
+    origins = instants[2], horizon = time_span(1, "days", "calendar"), index = time
+  )
+  expect_equal(analysis_indices(forecast), list(1:2))
+  expect_equal(assessment_indices(forecast), list(3L))
+})
+
+test_that("forecasting never leaves another dependent series' future available", {
+  data <- tibble::tibble(
+    site = rep(c("a", "b"), each = 4),
+    time = c(0, 1, 3, 5, 0, 2, 4, 6)
+  )
+  for (origins in list(NULL, 2)) {
+    if (is.null(origins)) {
+      expect_error(
+        forecast_folds(data,
+          initial = time_span(1),
+          horizon = time_span(2), key = site, index = time, within = "key"
+        ),
+        "one series per independent domain",
+        class = "naboer_error"
+      )
+    } else {
+      expect_error(
+        forecast_folds(data,
+          origins = origins,
+          horizon = time_span(2), key = site, index = time, within = "key"
+        ),
+        "one series per independent domain",
+        class = "naboer_error"
+      )
+    }
+  }
+  expect_error(
+    forecast_folds(data,
+      initial = time_span(2, "observations"),
+      horizon = time_span(1, "observations"), key = site, index = time
+    ),
+    "one series per independent domain"
+  )
+  expect_error(
+    forecast_folds(data,
+      origins = 2, horizon = time_span(2),
+      key = site, index = time, within = "k"
+    ),
+    "one series per independent domain"
+  )
+  shared <- forecast_folds(data,
+    origins = 2, horizon = time_span(2),
+    key = site, index = time
+  )
+  expect_equal(analysis_indices(shared), list(c(1L, 2L, 5L, 6L)))
+  expect_equal(omission_indices(shared), list(c(3L, 4L, 7L, 8L)))
+  expect_equal(assessment_indices(shared), list(c(3L, 7L)))
+  # Separating series through .by is an explicit declaration of independence.
+  independent <- forecast_folds(data,
+    initial = time_span(2, "observations"),
+    horizon = time_span(1, "observations"), key = site, index = time, .by = site
+  )
+  expect_equal(analysis_indices(independent, 1)[[1]], c(1L, 2L, 5L, 6L, 7L, 8L))
+  expect_equal(omission_indices(independent, 1)[[1]], 3:4)
+})
+
+test_that("temporal origins reject coercions and unrepresentable spans", {
+  data <- tibble::tibble(time = 1:5)
+  expect_error(temporal_folds(data, time_span(1), index = time, origin = "1"),
+    "same temporal index class",
+    class = "naboer_error"
+  )
+  expect_error(forecast_folds(data, origins = "2", horizon = time_span(1), index = time),
+    "same temporal index class",
+    class = "naboer_error"
+  )
+  expect_error(forecast_folds(data, origins = factor("2"), horizon = time_span(1), index = time),
+    "same temporal index class",
+    class = "naboer_error"
+  )
+  expect_error(neighbourhoods(data, temporal = temporal_window(time_span(1e308, "weeks")), index = time),
+    "too large",
+    class = "naboer_error"
+  )
+  matrix_data <- tibble::tibble(time = matrix(1:10, ncol = 2))
+  expect_error(neighbourhoods(matrix_data, temporal = temporal_window(time_span(1)), index = time),
+    "finite numeric",
+    class = "naboer_error"
+  )
+})
+
+test_that("forecast origins must advance at the index's numerical resolution", {
+  data <- tibble::tibble(time = c(1e9, 1e9 + 1, 1e9 + 2))
+  expect_error(forecast_folds(data,
+    initial = time_span(1), horizon = time_span(0.1),
+    step = time_span(1e-20), index = time
+  ), "does not advance", class = "naboer_error_time")
+})
+
+test_that("calendar origins use the data index timezone rather than their display zone", {
+  skip_if_not_installed("clock")
+  dates <- as.POSIXct(c(
+    "2024-03-30 12:00:00", "2024-03-31 12:00:00",
+    "2024-03-31 12:30:00", "2024-04-01 12:00:00"
+  ), tz = "Europe/Copenhagen")
+  utc_origin <- dates[1]
+  attr(utc_origin, "tzone") <- "UTC"
+  data <- tibble::tibble(time = dates)
+  blocks <- temporal_folds(data, time_span(1, "days", "calendar"),
+    index = time, origin = utc_origin
+  )
+  expect_equal(assessment_indices(blocks), list(1L, 2:3, 4L))
+  forecast <- forecast_folds(data,
+    origins = utc_origin,
+    horizon = time_span(1, "days", "calendar"), index = time
+  )
+  expect_equal(assessment_indices(forecast), list(2L))
+  expect_equal(omission_indices(forecast), list(2:4))
+  expect_equal(attr(forecast$spec$origins, "tzone"), "Europe/Copenhagen")
+})
+
+test_that("equivalent calendar origin steps retain the same leap-day anchor", {
+  skip_if_not_installed("clock")
+  data <- tibble::tibble(time = as.Date(c(
+    "2024-02-29", "2025-02-28",
+    "2026-02-28", "2027-02-28", "2028-02-29", "2029-02-28"
+  )))
+  years <- forecast_folds(data,
+    initial = time_span(1, "years", "calendar"),
+    step = time_span(1, "years", "calendar"), horizon = time_span(1, "years", "calendar"), index = time
+  )
+  months <- forecast_folds(data,
+    initial = time_span(12, "months", "calendar"),
+    step = time_span(1, "years", "calendar"), horizon = time_span(1, "years", "calendar"), index = time
+  )
+  expect_equal(months$spec$origins, years$spec$origins)
+  # The 2027 origin has no assessment before its 2028-02-28 endpoint.
+  expect_equal(months$spec$origins, as.Date(c("2025-02-28", "2026-02-28", "2028-02-29")))
+})

@@ -1,27 +1,48 @@
 # Release checklist for 0.1.0
 
-The version remains 0.0.1.9000 until these gates are independently verified.
-Local checks alone do not certify GitHub's platform matrix.
+Candidate **0.1.0**, reviewed 2026-10-17. **Do not tag or submit to CRAN without
+a new explicit instruction.** See `tools/REVIEW.md` for API/scientific findings
+and `tools/VALIDATION.md` for evidence and validation scope.
 
-- [x] Local full dependency tests pass with no skipped optional integrations.
-- [ ] Checks pass on Linux, macOS, Windows, R devel, oldrel and R 4.4.
-- [ ] Minimal installation gives clear optional-dependency errors.
-- [x] Overall line coverage >=90%; core storage/export/validation >=95%.
-- [x] README examples, vignettes and pkgdown build locally.
-- [x] Million-row temporal and fixed-station spatiotemporal fixtures pass;
-      records include hardware, runtime, output size and peak memory.
-- [ ] Approximation study reviewed for large omission fractions.
-- [ ] Full `R CMD build .` and `R CMD check --as-cran naboer_0.1.0.tar.gz`
-      include manuals/vignettes and have no unexplained diagnostics.
-- [ ] GitHub Pages configured for gh-pages; Codecov credentials configured if
-      needed; remote workflow results and uploads verified.
-- [ ] NEWS classifications reviewed and DESCRIPTION updated to 0.1.0.
-- [ ] Links and CRAN incoming checks reviewed; cran-comments.md records actual
-      platforms, results and expected notes.
+## Candidate review and local validation
 
-Standard PR CI uses `--no-manual` while building: it omits the PDF reference
-manual, so it cannot replace the full release check. The minimal dependency job
-uses `_R_CHECK_FORCE_SUGGESTS_=false` and intentionally excludes optional adapters.
-Always distinguish these exclusions from package failures in reports.
+- [x] Review API, canonical order, assessment/omission semantics, prediction
+      targets, domains and optional adapters; fix identified issues.
+- [x] Document mgcv 1.9-4 compatibility limits: at least two exported folds;
+      explicit sampled fold vectors for nonsingleton omission sets.
+- [x] Review large-omission approximation against exact fixed-basis refits;
+      distinguish fixture evidence from general accuracy/uncertainty guarantees.
+- [x] Full optional-dependency tests pass: 651 assertions, no warnings or skips.
+- [x] Coverage gates pass: 97.18% overall and 96.54% core.
+- [x] README examples, five vignettes, reference manual and pkgdown build.
+- [x] Million-row temporal and fixed-station space-time fixtures pass direct
+      references; record hardware, runtime, output size, R heap and process peak
+      memory separately.
+- [x] Build and full `R CMD check --as-cran naboer_0.1.0.tar.gz` include manuals
+      and vignettes: 0 errors/warnings, only expected New submission NOTE.
+- [x] Review NEWS classifications; amend unreleased feature entries once and
+      update DESCRIPTION/NEWS to 0.1.0.
+- [x] Review public links and incoming checks; update `cran-comments.md` with
+      actual local results and the expected NOTE.
 
-Local validation does not submit to CRAN, tag a release or publish remotely.
+## Remote gates
+
+- [x] Baseline `92db241`: platform matrix, minimal job, OIDC Codecov uploads,
+      pkgdown and actual GitHub Pages deployment all verified.
+- [ ] Repeat Linux/macOS/Windows, devel, oldrel and R4.4 checks for the reviewed
+      candidate; record workflow URLs.
+- [ ] Verify candidate minimal-dependency job, coverage gates, pkgdown and Pages.
+
+Standard push CI uses `--no-manual` and omits the PDF manual; vignettes are
+built and checked. The minimal job intentionally excludes optional adapters
+with `_R_CHECK_FORCE_SUGGESTS_=false`. The full release job is dispatch-only.
+No such exclusions were used for the full local candidate check.
+
+## Deliberately deferred
+
+- [ ] Maintainer approval of the candidate and documented scientific limits.
+- [ ] Create a tag/GitHub release — not authorised in this task.
+- [ ] Submit to CRAN — not authorised in this task.
+
+Window choice and model-specific approximation checks remain the analyst's
+responsibility. Later source changes require proportionate revalidation.

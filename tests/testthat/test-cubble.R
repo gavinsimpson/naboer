@@ -72,3 +72,52 @@ test_that("one-station nested cubbles are valid multiple-observation data", {
   expect_equal(nrow(fold_data(folds)), 10L)
   expect_equal(index_nfold(folds$assessment), 5L)
 })
+
+test_that("missing spatial coordinates do not prevent purely temporal cubble folds", {
+  skip_if_not_installed("cubble")
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  cube <- cubble::climate_mel
+  cube$long[[1]] <- NA_real_
+  expected <- temporal_folds(cubble::climate_mel, time_span(2, "days"), within = "domain")
+  actual <- temporal_folds(cube, time_span(2, "days"), within = "domain")
+  expect_equal(assessment_indices(actual), assessment_indices(expected))
+  expect_equal(nrow(fold_data(actual)), 30L)
+  expect_true(all(sf::st_is_empty(fold_data(actual)$geometry[1:10])))
+  expect_error(
+    neighbourhoods(cube, spatial = spatial_window(units::set_units(1, "km"))),
+    "CRS|nonempty"
+  )
+})
+
+test_that("cubble source maps preserve unsorted outer and within-series order", {
+  skip_if_not_installed("cubble")
+  skip_if_not_installed("sf")
+  cube <- cubble::climate_mel[3:1, ]
+  cube$ts <- lapply(cube$ts, function(x) x[c(5, 1, 9), ])
+  converted <- cubble_data(cube)
+  expect_equal(converted$data$id, rep(cube$id, each = 3))
+  expect_equal(converted$data$date, rep(cube$ts[[1]]$date, 3))
+  expect_equal(converted$source$.source_row, rep(1:3, each = 3))
+  expect_equal(converted$source$.source_subrow, rep(1:3, 3))
+})
+
+test_that("cubble adapters preserve active geometry when multiple sfc columns exist", {
+  skip_if_not_installed("cubble")
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  sites <- sf::st_as_sf(tibble::tibble(id = c("a", "b", "c"), x = c(0, 1, 10), y = 0),
+    coords = c("x", "y"), crs = 3857, remove = FALSE
+  )
+  sites$alternative <- sf::st_geometry(sites) + c(100, 0)
+  cube <- cubble::make_cubble(sites,
+    tibble::tibble(id = rep(c("a", "b", "c"), each = 2), time = rep(1:2, 3)),
+    key = id, index = time, coords = c(x, y)
+  )
+  for (input in list(cube, cubble::face_temporal(cube))) {
+    folds <- neighbourhoods(input, spatial = spatial_window(units::set_units(1, "m")))
+    expect_equal(omission_indices(folds, 1)[[1]], 1:4)
+    expect_identical(attr(fold_data(folds), "sf_column"), "geometry")
+    expect_equal(fold_data(folds)$geometry, sf::st_geometry(sites)[rep(1:3, each = 2)])
+  }
+})
