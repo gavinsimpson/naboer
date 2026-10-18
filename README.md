@@ -1,4 +1,4 @@
-# naboer
+# naboer <img src="man/figures/logo.png" align="right" height="160" alt="naboer hex logo: a Ramsay St. sign above a suburban neighbourhood" />
 
 [![R-CMD-check](https://github.com/gavinsimpson/naboer/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/gavinsimpson/naboer/actions/workflows/R-CMD-check.yaml)
 [![Coverage](https://codecov.io/gh/gavinsimpson/naboer/branch/main/graph/badge.svg)](https://app.codecov.io/gh/gavinsimpson/naboer)

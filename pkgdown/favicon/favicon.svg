@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">naboer street-sign icon</title>
+<desc id="desc">A cream lowercase n on an angled teal street sign.</desc>
+<rect width="256" height="256" rx="48" fill="#003F48"/><rect x="47" y="65" width="18" height="166" rx="6" fill="#84AAA0"/><g transform="matrix(1 .15 0 1 0 -18)"><rect x="32" y="46" width="204" height="132" rx="15" fill="#003F48" stroke="#FFF0CF" stroke-width="9"/><path fill="#FFF0CF" d="M88 78H111V89C118 79 129 75 141 75C163 75 177 90 177 114V156H152V116C152 104 146 98 136 98C121 98 113 108 113 122V156H88Z"/></g>
+</svg>
