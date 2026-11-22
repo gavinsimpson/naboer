@@ -75,10 +75,18 @@
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st"><a href="https://gavinsimpson.github.io/naboer/">"naboer"</a></span><span class="op">)</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st"><a href="https://tibble.tidyverse.org/" class="external-link">"tibble"</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st">"mgcv"</span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st">"datasets"</span><span class="op">)</span></span>
 <span></span>
+<span><span class="va">have_gratia</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"gratia"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">&amp;&amp;</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"ggplot2"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">have_ape</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"ape"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">have_rsample</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"rsample"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
+<span><span class="kw">if</span> <span class="op">(</span><span class="va">have_gratia</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st"><a href="https://gavinsimpson.github.io/gratia/" class="external-link">"gratia"</a></span><span class="op">)</span></span>
+<span>  <span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st"><a href="https://ggplot2.tidyverse.org" class="external-link">"ggplot2"</a></span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="va">have_ape</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st"><a href="https://github.com/emmanuelparadis/ape" class="external-link">"ape"</a></span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
@@ -93,11 +101,87 @@ has never seen. When the aim is to assess a particular observation while
 allowing for dependence among nearby observations, use a buffer around
 it. The buffer excludes observations from fitting while leaving the set
 of observations you score unchanged.</p>
-<p>Start with a monitoring dataset of six stations across two networks.
-Each station has four daily observations and its own temperature and
-moisture measurements, which are constant across the four days in this
-example.</p>
+<div class="section level2">
+<h2 id="predict-carbon-dioxide-uptake-for-a-new-plant">Predict carbon dioxide uptake for a new plant<a class="anchor" aria-label="anchor" href="#predict-carbon-dioxide-uptake-for-a-new-plant"></a>
+</h2>
+<p>The <code>CO2</code> dataset supplied with R contains measurements
+from a cold tolerance experiment on barnyard grass (<em>Echinochloa
+crus-galli</em>). The researchers measured how much carbon dioxide each
+of 12 plants took up at seven ambient concentrations. The plants came
+from Quebec and Mississippi, and half of those from each location were
+chilled overnight before the experiment. <a href="https://doi.org/10.2307/1938276" class="external-link">Potvin, Lechowicz and Tardif
+(1990)</a>.</p>
+<p>Combine origin (<code>Type</code>) and <code>Treatment</code> into
+one factor so the model can fit a separate response curve for each
+combination.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">grass</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/transform.html" class="external-link">transform</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">CO2</span><span class="op">)</span>,</span>
+<span>  condition <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/interaction.html" class="external-link">interaction</a></span><span class="op">(</span><span class="va">Type</span>, <span class="va">Treatment</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>We want to predict uptake for a new plant from one of these four
+combinations. If we held out one measurement at a time, other
+measurements from the same plant could help predict the one we held out.
+Group by <code>Plant</code> so all seven measurements from a plant are
+left out and scored together. Inspect the first of the 12 folds.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plant_folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/group_folds.html">group_folds</a></span><span class="op">(</span><span class="va">grass</span>, group <span class="op">=</span> <span class="va">Plant</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">plant_folds</span>, folds <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 6</span></span></span>
+<span><span class="co">#&gt;   fold  n_assessment n_omission n_analysis n_buffer omitted_fraction</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>      <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>    <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>            <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> 1                7          7         77        0           0.083<span style="text-decoration: underline;">3</span></span></span></code></pre></div>
+<p>Fit a smooth of ambient concentration (<code>conc</code>) for each
+combination of origin and treatment. The separate <code>condition</code>
+term also lets the mean uptake differ between combinations. Export the
+plant folds with <code><a href="../reference/as_nei.html">as_nei()</a></code> and pass them to
+<code><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam()</a></code> so that QNCV chooses the smoothness using approximate
+predictions for each held-out plant. The resulting model uses all 12
+plants.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plant_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">plant_folds</span><span class="op">)</span></span>
+<span><span class="va">plant_nei</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">plant_folds</span>, data <span class="op">=</span> <span class="va">plant_data</span><span class="op">)</span></span>
+<span><span class="va">plant_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">uptake</span> <span class="op">~</span> <span class="va">condition</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">conc</span>, by <span class="op">=</span> <span class="va">condition</span>, k <span class="op">=</span> <span class="fl">5</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">plant_data</span>, method <span class="op">=</span> <span class="st">"QNCV"</span>, nei <span class="op">=</span> <span class="va">plant_nei</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Use gratia’s <code><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted()</a></code> to evaluate the fitted curves
+across the observed range of concentrations for each origin and
+treatment.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">plant_grid</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/expand.grid.html" class="external-link">expand.grid</a></span><span class="op">(</span></span>
+<span>  conc <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">plant_data</span><span class="op">$</span><span class="va">conc</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">plant_data</span><span class="op">$</span><span class="va">conc</span><span class="op">)</span>, length.out <span class="op">=</span> <span class="fl">100</span><span class="op">)</span>,</span>
+<span>  Type <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/levels.html" class="external-link">levels</a></span><span class="op">(</span><span class="va">plant_data</span><span class="op">$</span><span class="va">Type</span><span class="op">)</span>,</span>
+<span>  Treatment <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/levels.html" class="external-link">levels</a></span><span class="op">(</span><span class="va">plant_data</span><span class="op">$</span><span class="va">Treatment</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="va">plant_grid</span><span class="op">$</span><span class="va">condition</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/with.html" class="external-link">with</a></span><span class="op">(</span><span class="va">plant_grid</span>, <span class="fu"><a href="https://rdrr.io/r/base/interaction.html" class="external-link">interaction</a></span><span class="op">(</span><span class="va">Type</span>, <span class="va">Treatment</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">plant_curves</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted</a></span><span class="op">(</span><span class="va">plant_grid</span>, <span class="va">plant_fit</span>, value <span class="op">=</span> <span class="st">"fitted_uptake"</span><span class="op">)</span></span></code></pre></div>
+<p>Plot the mean predicted uptake for a new plant alongside the original
+measurements. The curves for chilled plants are lower at both origins,
+especially for plants from Mississippi.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">plant_data</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">conc</span>, colour <span class="op">=</span> <span class="va">Treatment</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">uptake</span><span class="op">)</span>, alpha <span class="op">=</span> <span class="fl">0.55</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_path.html" class="external-link">geom_line</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">plant_curves</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">fitted_uptake</span><span class="op">)</span>, linewidth <span class="op">=</span> <span class="fl">0.9</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/facet_wrap.html" class="external-link">facet_wrap</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/vars.html" class="external-link">vars</a></span><span class="op">(</span><span class="va">Type</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_manual.html" class="external-link">scale_colour_manual</a></span><span class="op">(</span></span>
+<span>    values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>nonchilled <span class="op">=</span> <span class="st">"#0072B2"</span>, chilled <span class="op">=</span> <span class="st">"#D55E00"</span><span class="op">)</span>,</span>
+<span>    labels <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>nonchilled <span class="op">=</span> <span class="st">"Non-chilled"</span>, chilled <span class="op">=</span> <span class="st">"Chilled"</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span></span>
+<span>    x <span class="op">=</span> <span class="st">"Ambient carbon dioxide concentration (µL/L)"</span>,</span>
+<span>    y <span class="op">=</span> <span class="st">"Carbon dioxide uptake (µmol/m²/s)"</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span></span></code></pre></div>
+<p><img src="ecological_files/figure-html/grass-curves-1.png" class="r-plt" alt="Carbon dioxide uptake curves and observed measurements for Quebec and Mississippi grasses. The fitted curves are lower for chilled plants, especially those from Mississippi." width="672"></p>
+</div>
+<div class="section level2">
+<h2 id="whole-stations-and-hierarchical-groups">Whole stations and hierarchical groups<a class="anchor" aria-label="anchor" href="#whole-stations-and-hierarchical-groups"></a>
+</h2>
+<p>The remaining examples use small invented datasets to show how the
+folds are constructed. In this monitoring example, six stations belong
+to two networks. Each station has four daily observations and its own
+temperature and moisture measurements, which are constant across the
+four days.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">observations</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span></span>
 <span>  observation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fl">24</span><span class="op">)</span>,</span>
 <span>  network <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"north"</span>, <span class="st">"south"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">12</span><span class="op">)</span>,</span>
@@ -109,20 +193,17 @@ example.</p>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"wet"</span>, <span class="st">"wet"</span>, <span class="st">"intermediate"</span>, <span class="st">"intermediate"</span>, <span class="st">"dry"</span>, <span class="st">"dry"</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">4</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<div class="section level2">
-<h2 id="whole-stations-and-hierarchical-groups">Whole stations and hierarchical groups<a class="anchor" aria-label="anchor" href="#whole-stations-and-hierarchical-groups"></a>
-</h2>
 <p>Use <code><a href="../reference/group_folds.html">group_folds()</a></code> to leave out one station at a time.
 Selecting both <code>network</code> and <code>station</code> makes the
 pair the group identifier. This also works when different networks use
 the same station names.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">new_station</span> <span class="op">&lt;-</span> <span class="va">observations</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/group_folds.html">group_folds</a></span><span class="op">(</span>group <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">network</span>, <span class="va">station</span><span class="op">)</span>, id <span class="op">=</span> <span class="va">observation</span><span class="op">)</span></span></code></pre></div>
 <p>The summary shows six folds, each assessing four observations. Use
 <code><a href="../reference/assessment_indices.html">assessment_indices()</a></code> to see which rows contribute to the
 error in a fold. The indices are positions in the original table.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">new_station</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 6</span></span></span>
 <span><span class="co">#&gt;   fold  n_assessment n_omission n_analysis n_buffer omitted_fraction</span></span>
@@ -141,7 +222,7 @@ number of folds. The stations stay whole, and
 <code>balance = TRUE</code> aims to give the folds similar numbers of
 observations. Setting <code>seed</code> makes this allocation
 reproducible without changing your session’s random number state.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">station_vfold</span> <span class="op">&lt;-</span> <span class="va">observations</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/group_folds.html">group_folds</a></span><span class="op">(</span>group <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">network</span>, <span class="va">station</span><span class="op">)</span>, v <span class="op">=</span> <span class="fl">3</span>, balance <span class="op">=</span> <span class="cn">TRUE</span>, seed <span class="op">=</span> <span class="fl">21</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">station_vfold</span><span class="op">)</span></span>
@@ -168,7 +249,7 @@ clusters from temperature and moisture. The function standardises each
 predictor to unit standard deviation by default, so the distance
 calculation uses a common scale for both. Each cluster forms one fold,
 and clusters can differ in size.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">new_environment</span> <span class="op">&lt;-</span> <span class="va">observations</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/environmental_folds.html">environmental_folds</a></span><span class="op">(</span>predictors <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">temperature</span>, <span class="va">moisture</span><span class="op">)</span>, v <span class="op">=</span> <span class="fl">3</span>, seed <span class="op">=</span> <span class="fl">22</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">new_environment</span><span class="op">)</span></span>
@@ -191,7 +272,7 @@ habitats in turn. To combine whole habitats into fewer folds, supply
 <code>v</code>. In that case, <code>balance</code> controls whether
 allocation balances the number of observations or the number of
 habitats.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">new_habitat</span> <span class="op">&lt;-</span> <span class="va">observations</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/environmental_folds.html">environmental_folds</a></span><span class="op">(</span>strata <span class="op">=</span> <span class="va">habitat</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">new_habitat</span><span class="op">)</span></span>
@@ -216,7 +297,7 @@ installed. Use it to make a tree of four taxa, then create a table with
 six observations per taxon. All observed taxa must match tip labels in
 the tree, and each branch needs a finite, non-negative length. The tree
 may include unused tips.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tree</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/ape/man/read.tree.html" class="external-link">read.tree</a></span><span class="op">(</span></span>
 <span>  text <span class="op">=</span> <span class="st">"((oak:1,beech:1):2,(pine:1,fir:1):2);"</span></span>
 <span><span class="op">)</span></span>
@@ -229,7 +310,7 @@ taxa. Oak and beech are two units apart, and oak and pine are six units
 apart. To assess one observation at a time while excluding its close
 relatives from training, set a radius in those same units. A radius of
 two includes taxa exactly two units away.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">near_taxa</span> <span class="op">&lt;-</span> <span class="va">taxon_data</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/neighbourhoods.html">neighbourhoods</a></span><span class="op">(</span></span>
 <span>    phylogenetic <span class="op">=</span> <span class="fu"><a href="../reference/phylogenetic_window.html">phylogenetic_window</a></span><span class="op">(</span><span class="va">tree</span>, <span class="va">taxon</span>, radius <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>,</span>
@@ -240,7 +321,7 @@ leaves all oak and beech observations out of the fit. The exclusion
 applies within the same domain when you use <code>.by</code>. The
 function calculates distances once between taxa and reuses them across
 observations of each taxon.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/assessment_indices.html">assessment_indices</a></span><span class="op">(</span><span class="va">near_taxa</span>, folds <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [[1]]</span></span>
 <span><span class="co">#&gt; [1] 1</span></span>
@@ -253,7 +334,7 @@ number of groups or <code>height</code> for a maximum distance between
 any pair of taxa in a group. Here <code>height = 2</code> groups oak
 with beech and pine with fir. All observations of the held-out taxa are
 scored.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">taxon_blocks</span> <span class="op">&lt;-</span> <span class="va">taxon_data</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/phylogenetic_folds.html">phylogenetic_folds</a></span><span class="op">(</span><span class="va">tree</span>, <span class="va">taxon</span>, height <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">taxon_blocks</span><span class="op">)</span></span>
@@ -271,7 +352,7 @@ tree. Supply the node number or the complete set of descendant tip
 labels for each clade. The clades must cover every observed taxon, and
 each tip can belong to only one selected clade. Here we specify the two
 pairs explicitly.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">new_clade</span> <span class="op">&lt;-</span> <span class="va">taxon_data</span> <span class="op">|&gt;</span></span>
 <span>  <span class="fu"><a href="../reference/phylogenetic_folds.html">phylogenetic_folds</a></span><span class="op">(</span></span>
 <span>    <span class="va">tree</span>, <span class="va">taxon</span>,</span>
@@ -289,13 +370,13 @@ pairs explicitly.</p>
 </h2>
 <p>Start with leave-one-out folds for the monitoring data. Each
 observation is scored in its own fold.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">leave_one_out</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/loo_folds.html">loo_folds</a></span><span class="op">(</span><span class="va">observations</span>, id <span class="op">=</span> <span class="va">observation</span><span class="op">)</span></span></code></pre></div>
 <p>Add a one-day buffer around the assessment observation in each fold.
 With <code>key = station</code> and <code>within = "key"</code>, the
 buffer stays within the same station. Distances are measured from the
 assessment observation itself.</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">buffered</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/buffer_folds.html">buffer_folds</a></span><span class="op">(</span></span>
 <span>  <span class="va">leave_one_out</span>,</span>
 <span>  temporal <span class="op">=</span> <span class="fu"><a href="../reference/temporal_window.html">temporal_window</a></span><span class="op">(</span><span class="fu"><a href="../reference/time_span.html">time_span</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"days"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -304,7 +385,7 @@ assessment observation itself.</p>
 <p>In fold 2, row 2 is still the only assessment observation. The buffer
 also excludes rows 1 and 3 from fitting, so <code>n_buffer</code> is 2
 and the analysis set starts at row 4.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">buffered</span>, folds <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 1 × 6</span></span></span>
 <span><span class="co">#&gt;   fold  n_assessment n_omission n_analysis n_buffer omitted_fraction</span></span>
@@ -318,12 +399,12 @@ package. Export with <code><a href="../reference/as_rset.html">as_rset()</a></co
 analysis set using rsample. The exported resamples store the analysis
 and assessment sets separately. Rows excluded by the buffer alone belong
 to neither set.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">resamples</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_rset.html">as_rset</a></span><span class="op">(</span><span class="va">buffered</span><span class="op">)</span></span></code></pre></div>
 <p>Import with <code><a href="../reference/as_rset.html">from_rset()</a></code> to get a naboer design back. It
 treats all rows outside the analysis set as omitted, so the buffer
 survives the round trip. These comparisons check all three sets.</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">restored</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_rset.html">from_rset</a></span><span class="op">(</span><span class="va">resamples</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/identical.html" class="external-link">identical</a></span><span class="op">(</span><span class="fu"><a href="../reference/assessment_indices.html">assessment_indices</a></span><span class="op">(</span><span class="va">restored</span><span class="op">)</span>, <span class="fu"><a href="../reference/assessment_indices.html">assessment_indices</a></span><span class="op">(</span><span class="va">buffered</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>

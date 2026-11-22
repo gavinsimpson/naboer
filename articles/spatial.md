@@ -83,9 +83,8 @@ to make predictions or how far residual dependence extends.
 
 ``` r
 
-weather_folds <- neighbourhoods(weather_points,
-  spatial = spatial_window(set_units(100, "km"))
-)
+weather_window <- spatial_window(set_units(100, "km"))
+weather_folds <- neighbourhoods(weather_points, spatial = weather_window)
 range(lengths(omission_indices(weather_folds)))
 #> [1] 1 8
 ```
@@ -366,40 +365,89 @@ To assess blocks instead of individual observations, use
 time block. `mode = "space"` holds out spatial blocks across all dates,
 and `mode = "time"` holds out time blocks across stations.
 
-## Cubble
+## Fit a GAM to repeated weather observations
 
-For spatiotemporal data, use a cubble to keep measurements linked to
-their site locations. Put the measured values in a table with a site and
-date for each record, then link them to the site geometries.
+Return to the Australian weather stations. To predict a missing
+temperature within the observed week, we can use records from other
+dates at the same station as well as records from other stations. We
+will use a cubble to keep the measurements linked to their station
+locations.
+
+Keep the records from 12 to 18 January 2018 at the stations used in the
+spatial fit. The model uses `day` to track time within the week. Give
+each measurement a unique identifier so
+[`as_nei()`](https://gavinsimpson.github.io/naboer/reference/as_nei.md)
+can check the model’s row order.
 
 ``` r
 
-values <- st_drop_geometry(observations)
-values$value <- seq_len(nrow(values))
+station_locations <- weather_points[c("id", "elev", "east_km", "north_km")]
+daily_temperatures <- historical_tmax |>
+  face_temporal() |>
+  as_tibble() |>
+  filter(
+    id %in% station_locations$id,
+    between(date, as.Date("2018-01-12"), as.Date("2018-01-18")),
+    is.finite(tmax)
+  ) |>
+  mutate(day = as.numeric(date - min(date)), record_id = row_number())
+```
+
+Use each station’s `id` to link the daily measurements to the projected
+locations. Set `date` as the time index.
+
+``` r
+
 cube <- make_cubble(
-  spatial = sites, temporal = values, key = site, index = date
+  spatial = station_locations, temporal = daily_temperatures,
+  key = id, index = date
 )
 ```
 
 [`neighbourhoods()`](https://gavinsimpson.github.io/naboer/reference/neighbourhoods.md)
-reads the key and index from the cubble. Apply the same windows as
-before, then inspect the data in the row order used by the folds.
+reads the key and index from the cubble. Each fold omits measurements
+within 100 km and within one day of the target, then scores the target
+measurement alone.
 
 ``` r
 
 cube_folds <- neighbourhoods(
-  cube, spatial = site_window, temporal = day_window, combine = "intersection"
+  cube, spatial = weather_window, temporal = day_window,
+  combine = "intersection", id = record_id
 )
-head(fold_data(cube_folds))
-#> # A tibble: 6 × 6
-#>   site  date       value     x     y    geometry
-#>   <chr> <date>     <int> <dbl> <dbl> <POINT [m]>
-#> 1 a     2024-01-01     1     0     0       (0 0)
-#> 2 a     2024-01-02     2     0     0       (0 0)
-#> 3 a     2024-01-03     3     0     0       (0 0)
-#> 4 a     2024-01-04     4     0     0       (0 0)
-#> 5 a     2024-01-05     5     0     0       (0 0)
-#> 6 a     2024-01-06     6     0     0       (0 0)
+```
+
+Use
+[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md)
+to get one row per station and date in the order expected by
+[`as_nei()`](https://gavinsimpson.github.io/naboer/reference/as_nei.md).
+Fit a GAM with the same elevation and spatial terms as before, plus a
+smooth for changes in temperature over the week across the region. Use
+the joint neighbourhoods to select smoothness for the spatial surface
+and the time trend.
+
+``` r
+
+cube_data <- fold_data(cube_folds)
+cube_nei <- as_nei(cube_folds, data = cube_data)
+cube_fit <- gam(
+  tmax ~ elev + s(east_km, north_km, k = 20) + s(day, k = 7),
+  data = cube_data, method = "QNCV", nei = cube_nei, na.action = na.fail
+)
+```
+
+Use [`edf()`](https://gavinsimpson.github.io/gratia/reference/edf.html)
+to see how much flexibility the fit assigns to the spatial surface and
+to the change across days.
+
+``` r
+
+edf(cube_fit)
+#> # A tibble: 2 × 2
+#>   .smooth              .edf
+#>   <chr>               <dbl>
+#> 1 s(east_km,north_km)  5.24
+#> 2 s(day)               5.49
 ```
 
 You can pass a nested spatial cubble or its long temporal form. In both

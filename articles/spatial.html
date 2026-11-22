@@ -140,9 +140,8 @@ data. The radius illustrates a prediction task with few nearby stations.
 For your own analysis, choose the distance to reflect where you expect
 to make predictions or how far residual dependence extends.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">weather_folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/neighbourhoods.html">neighbourhoods</a></span><span class="op">(</span><span class="va">weather_points</span>,</span>
-<span>  spatial <span class="op">=</span> <span class="fu"><a href="../reference/spatial_window.html">spatial_window</a></span><span class="op">(</span><span class="fu"><a href="https://r-quantities.github.io/units/reference/units.html" class="external-link">set_units</a></span><span class="op">(</span><span class="fl">100</span>, <span class="st">"km"</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">weather_window</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/spatial_window.html">spatial_window</a></span><span class="op">(</span><span class="fu"><a href="https://r-quantities.github.io/units/reference/units.html" class="external-link">set_units</a></span><span class="op">(</span><span class="fl">100</span>, <span class="st">"km"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">weather_folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/neighbourhoods.html">neighbourhoods</a></span><span class="op">(</span><span class="va">weather_points</span>, spatial <span class="op">=</span> <span class="va">weather_window</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lengths.html" class="external-link">lengths</a></span><span class="op">(</span><span class="fu"><a href="../reference/assessment_indices.html">omission_indices</a></span><span class="op">(</span><span class="va">weather_folds</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 1 8</span></span></code></pre></div>
 <p>Fit temperature as a function of elevation and a smooth surface over
@@ -362,34 +361,65 @@ and <code>mode = "time"</code> holds out time blocks across
 stations.</p>
 </div>
 <div class="section level2">
-<h2 id="cubble">Cubble<a class="anchor" aria-label="anchor" href="#cubble"></a>
+<h2 id="cubble">Fit a GAM to repeated weather observations<a class="anchor" aria-label="anchor" href="#cubble"></a>
 </h2>
-<p>For spatiotemporal data, use a cubble to keep measurements linked to
-their site locations. Put the measured values in a table with a site and
-date for each record, then link them to the site geometries.</p>
+<p>Return to the Australian weather stations. To predict a missing
+temperature within the observed week, we can use records from other
+dates at the same station as well as records from other stations. We
+will use a cubble to keep the measurements linked to their station
+locations.</p>
+<p>Keep the records from 12 to 18 January 2018 at the stations used in
+the spatial fit. The model uses <code>day</code> to track time within
+the week. Give each measurement a unique identifier so
+<code><a href="../reference/as_nei.html">as_nei()</a></code> can check the model’s row order.</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">values</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_geometry.html" class="external-link">st_drop_geometry</a></span><span class="op">(</span><span class="va">observations</span><span class="op">)</span></span>
-<span><span class="va">values</span><span class="op">$</span><span class="va">value</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">values</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">cube</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://huizezhang-sherry.github.io/cubble/reference/cubble-class.html" class="external-link">make_cubble</a></span><span class="op">(</span></span>
-<span>  spatial <span class="op">=</span> <span class="va">sites</span>, temporal <span class="op">=</span> <span class="va">values</span>, key <span class="op">=</span> <span class="va">site</span>, index <span class="op">=</span> <span class="va">date</span></span>
+<code class="sourceCode R"><span><span class="va">station_locations</span> <span class="op">&lt;-</span> <span class="va">weather_points</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span>, <span class="st">"elev"</span>, <span class="st">"east_km"</span>, <span class="st">"north_km"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="va">daily_temperatures</span> <span class="op">&lt;-</span> <span class="va">historical_tmax</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://huizezhang-sherry.github.io/cubble/reference/face.html" class="external-link">face_temporal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span></span>
+<span>    <span class="va">id</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="va">station_locations</span><span class="op">$</span><span class="va">id</span>,</span>
+<span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/between.html" class="external-link">between</a></span><span class="op">(</span><span class="va">date</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">"2018-01-12"</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">"2018-01-18"</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>    <span class="fu"><a href="https://rdrr.io/r/base/is.finite.html" class="external-link">is.finite</a></span><span class="op">(</span><span class="va">tmax</span><span class="op">)</span></span>
+<span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>day <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">date</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">date</span><span class="op">)</span><span class="op">)</span>, record_id <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/row_number.html" class="external-link">row_number</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p>Use each station’s <code>id</code> to link the daily measurements to
+the projected locations. Set <code>date</code> as the time index.</p>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">cube</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://huizezhang-sherry.github.io/cubble/reference/cubble-class.html" class="external-link">make_cubble</a></span><span class="op">(</span></span>
+<span>  spatial <span class="op">=</span> <span class="va">station_locations</span>, temporal <span class="op">=</span> <span class="va">daily_temperatures</span>,</span>
+<span>  key <span class="op">=</span> <span class="va">id</span>, index <span class="op">=</span> <span class="va">date</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p><code><a href="../reference/neighbourhoods.html">neighbourhoods()</a></code> reads the key and index from the
-cubble. Apply the same windows as before, then inspect the data in the
-row order used by the folds.</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+cubble. Each fold omits measurements within 100 km and within one day of
+the target, then scores the target measurement alone.</p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cube_folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/neighbourhoods.html">neighbourhoods</a></span><span class="op">(</span></span>
-<span>  <span class="va">cube</span>, spatial <span class="op">=</span> <span class="va">site_window</span>, temporal <span class="op">=</span> <span class="va">day_window</span>, combine <span class="op">=</span> <span class="st">"intersection"</span></span>
-<span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">cube_folds</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 6</span></span></span>
-<span><span class="co">#&gt;   site  date       value     x     y    geometry</span></span>
-<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> <span style="color: #949494; font-style: italic;">&lt;date&gt;</span>     <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span> <span style="color: #949494; font-style: italic;">&lt;POINT [m]&gt;</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> a     2024-01-01     1     0     0       (0 0)</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> a     2024-01-02     2     0     0       (0 0)</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> a     2024-01-03     3     0     0       (0 0)</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> a     2024-01-04     4     0     0       (0 0)</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> a     2024-01-05     5     0     0       (0 0)</span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> a     2024-01-06     6     0     0       (0 0)</span></span></code></pre></div>
+<span>  <span class="va">cube</span>, spatial <span class="op">=</span> <span class="va">weather_window</span>, temporal <span class="op">=</span> <span class="va">day_window</span>,</span>
+<span>  combine <span class="op">=</span> <span class="st">"intersection"</span>, id <span class="op">=</span> <span class="va">record_id</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Use <code><a href="../reference/fold_data.html">fold_data()</a></code> to get one row per station and date in
+the order expected by <code><a href="../reference/as_nei.html">as_nei()</a></code>. Fit a GAM with the same
+elevation and spatial terms as before, plus a smooth for changes in
+temperature over the week across the region. Use the joint
+neighbourhoods to select smoothness for the spatial surface and the time
+trend.</p>
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">cube_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">cube_folds</span><span class="op">)</span></span>
+<span><span class="va">cube_nei</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">cube_folds</span>, data <span class="op">=</span> <span class="va">cube_data</span><span class="op">)</span></span>
+<span><span class="va">cube_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span></span>
+<span>  <span class="va">tmax</span> <span class="op">~</span> <span class="va">elev</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">east_km</span>, <span class="va">north_km</span>, k <span class="op">=</span> <span class="fl">20</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">day</span>, k <span class="op">=</span> <span class="fl">7</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">cube_data</span>, method <span class="op">=</span> <span class="st">"QNCV"</span>, nei <span class="op">=</span> <span class="va">cube_nei</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Use <code><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf()</a></code> to see how much flexibility the fit assigns to
+the spatial surface and to the change across days.</p>
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf</a></span><span class="op">(</span><span class="va">cube_fit</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 2</span></span></span>
+<span><span class="co">#&gt;   .smooth              .edf</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>               <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> s(east_km,north_km)  5.24</span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> s(day)               5.49</span></span></code></pre></div>
 <p>You can pass a nested spatial cubble or its long temporal form. In
 both cases, <code><a href="../reference/fold_data.html">fold_data()</a></code> returns one row per measurement
 with its original site geometry, including polygons. If the site data

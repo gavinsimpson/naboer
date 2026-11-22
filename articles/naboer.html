@@ -74,50 +74,143 @@
     
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st"><a href="https://gavinsimpson.github.io/naboer/">"naboer"</a></span><span class="op">)</span></span>
-<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st"><a href="https://tibble.tidyverse.org/" class="external-link">"tibble"</a></span><span class="op">)</span></span></code></pre></div>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st"><a href="https://tibble.tidyverse.org/" class="external-link">"tibble"</a></span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st">"mgcv"</span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st">"datasets"</span><span class="op">)</span></span>
+<span></span>
+<span><span class="va">have_gratia</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/ns-load.html" class="external-link">requireNamespace</a></span><span class="op">(</span><span class="st">"gratia"</span>, quietly <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="kw">if</span> <span class="op">(</span><span class="va">have_gratia</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st"><a href="https://gavinsimpson.github.io/gratia/" class="external-link">"gratia"</a></span><span class="op">)</span></span>
+<span>  <span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st"><a href="https://ggplot2.tidyverse.org" class="external-link">"ggplot2"</a></span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
 <p>naboer builds the <code>nei</code> argument that mgcv uses to select
 smoothness by neighbourhood cross-validation (NCV) or its quadratic
-variant (QNCV). Start with a worked example that makes a neighbourhood
-for each observation, fits a smooth and compares it with leave-one-out
-selection. <a href="temporal.html#choose-smoothness-for-a-time-series">Soil moisture
-over time</a>. <a href="spatial.html#choose-smoothness-for-spatial-data">Daily maximum
-temperature across weather stations</a>.</p>
-<p>Suppose you want to predict a measurement at a new location. If
-measurements from nearby locations are similar, fitting the model with
-those neighbours may make the prediction task easier than the one you
-care about. A cross-validation fold can leave out the target location
-and its neighbours, then score the prediction only at the target.</p>
-<p>naboer distinguishes three sets of rows in each fold.</p>
-<ul>
-<li>
-<strong>Assessment</strong> rows are the ones whose predictions
-contribute to the score.</li>
-<li>
-<strong>Omission</strong> rows are left out when fitting. They
-include every assessment row and can also include neighbours,
-observations from the future, or observations outside a fixed-length
-training window.</li>
-<li>
-<strong>Analysis</strong> rows are the remaining rows used to fit
-the model.</li>
-</ul>
+variant (QNCV).</p>
+<div class="section level2">
+<h2 id="fit-a-model-with-mgcv">Fit a model with mgcv<a class="anchor" aria-label="anchor" href="#fit-a-model-with-mgcv"></a>
+</h2>
+<p>How smooth a curve would you use to estimate the water level in the
+middle of a five-year gap in the record? To mimic that prediction task,
+leave out the year to be predicted and the two years on either side,
+then score the prediction for the middle year.</p>
+<p>R includes annual measurements of Lake Huron water levels from 1875
+to 1972. Use the calendar year as the model predictor and the start of
+each year as the index for constructing folds. The recorded levels are
+in feet. <a href="https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/LakeHuron.html" class="external-link">Lake
+Huron data documentation</a>.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">year</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/integer.html" class="external-link">as.integer</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/time.html" class="external-link">time</a></span><span class="op">(</span><span class="va">LakeHuron</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">lake</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span></span>
+<span>  year <span class="op">=</span> <span class="va">year</span>,</span>
+<span>  date <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"%d-01-01"</span>, <span class="va">year</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  level <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">LakeHuron</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Create one fold per year with a window that reaches two calendar
+years before and after the target. Near the ends of the record it
+includes only the neighbours that are available.</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lake_folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/neighbourhoods.html">neighbourhoods</a></span><span class="op">(</span><span class="va">lake</span>,</span>
+<span>  index <span class="op">=</span> <span class="va">date</span>, temporal <span class="op">=</span> <span class="fu"><a href="../reference/temporal_window.html">temporal_window</a></span><span class="op">(</span><span class="fu"><a href="../reference/time_span.html">time_span</a></span><span class="op">(</span><span class="fl">2</span>, <span class="st">"years"</span>, type <span class="op">=</span> <span class="st">"calendar"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Check the fold for 1925. The <strong>assessment</strong> is the year
+whose prediction is scored. The <strong>omission</strong> includes the
+assessment year and its neighbours, 1923 to 1927. The remaining years
+make up the <strong>analysis</strong> data used for fitting that
+fold.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lake_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">lake_folds</span><span class="op">)</span></span>
+<span><span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="fl">1925L</span>, <span class="va">lake_data</span><span class="op">$</span><span class="va">year</span><span class="op">)</span></span>
+<span><span class="va">lake_data</span><span class="op">$</span><span class="va">year</span><span class="op">[</span><span class="fu"><a href="../reference/assessment_indices.html">assessment_indices</a></span><span class="op">(</span><span class="va">lake_folds</span>, folds <span class="op">=</span> <span class="va">target</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="co">#&gt; [1] 1925</span></span>
+<span><span class="va">lake_data</span><span class="op">$</span><span class="va">year</span><span class="op">[</span><span class="fu"><a href="../reference/assessment_indices.html">omission_indices</a></span><span class="op">(</span><span class="va">lake_folds</span>, folds <span class="op">=</span> <span class="va">target</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="co">#&gt; [1] 1923 1924 1925 1926 1927</span></span></code></pre></div>
+<p>The exported indices refer to rows of <code><a href="../reference/fold_data.html">fold_data()</a></code>. Pass
+those data to <code><a href="../reference/as_nei.html">as_nei()</a></code> to check the alignment and use the
+same data to fit the model. If you change the observations, rebuild the
+folds before fitting.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lake_nei</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">lake_folds</span>, data <span class="op">=</span> <span class="va">lake_data</span><span class="op">)</span></span></code></pre></div>
+<p>Fit water level as a smooth function of year. Supply <code>nei</code>
+and <code>method = "NCV"</code> to <code><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam()</a></code> to choose
+smoothness using the five-year windows.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lake_ncv</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">level</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">year</span>, k <span class="op">=</span> <span class="fl">20</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">lake_data</span>, method <span class="op">=</span> <span class="st">"NCV"</span>, nei <span class="op">=</span> <span class="va">lake_nei</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Fit the same model with <code>nei</code> omitted. With
+<code>method = "NCV"</code>, mgcv then leaves out only the year it
+scores. Both final fits use the full record, with the smoothing
+parameter chosen by their respective criteria.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lake_loo</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">level</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">year</span>, k <span class="op">=</span> <span class="fl">20</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">lake_data</span>, method <span class="op">=</span> <span class="st">"NCV"</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Use gratia to compare the effective degrees of freedom (EDF) of the
+two smooths. The fit selected with the five-year window has lower EDF
+and follows broader changes in water level.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span></span>
+<span>  criterion <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Leave-one-out"</span>, <span class="st">"Five-year window"</span><span class="op">)</span>,</span>
+<span>  effective_degrees_of_freedom <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf</a></span><span class="op">(</span><span class="va">lake_loo</span><span class="op">)</span><span class="op">$</span><span class="va">.edf</span>, <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf</a></span><span class="op">(</span><span class="va">lake_ncv</span><span class="op">)</span><span class="op">$</span><span class="va">.edf</span><span class="op">)</span></span>
+<span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 2</span></span></span>
+<span><span class="co">#&gt;   criterion        effective_degrees_of_freedom</span></span>
+<span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                                   <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> Leave-one-out                           16.8 </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> Five-year window                         2.07</span></span></code></pre></div>
+<p>Use <code><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted()</a></code> to attach the fitted values to their
+years for plotting.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">lake_curves</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/transform.html" class="external-link">transform</a></span><span class="op">(</span><span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted</a></span><span class="op">(</span><span class="va">lake_data</span>, <span class="va">lake_loo</span>, value <span class="op">=</span> <span class="st">"fitted_level"</span><span class="op">)</span>,</span>
+<span>    criterion <span class="op">=</span> <span class="st">"Leave-one-out"</span></span>
+<span>  <span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/transform.html" class="external-link">transform</a></span><span class="op">(</span><span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted</a></span><span class="op">(</span><span class="va">lake_data</span>, <span class="va">lake_ncv</span>, value <span class="op">=</span> <span class="st">"fitted_level"</span><span class="op">)</span>,</span>
+<span>    criterion <span class="op">=</span> <span class="st">"Five-year window"</span></span>
+<span>  <span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Overlay the two fitted curves on the observed water levels.</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">lake_data</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">year</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">level</span><span class="op">)</span>, colour <span class="op">=</span> <span class="st">"grey50"</span>, size <span class="op">=</span> <span class="fl">1.2</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_path.html" class="external-link">geom_line</a></span><span class="op">(</span></span>
+<span>    data <span class="op">=</span> <span class="va">lake_curves</span>,</span>
+<span>    <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">fitted_level</span>, colour <span class="op">=</span> <span class="va">criterion</span>, linetype <span class="op">=</span> <span class="va">criterion</span><span class="op">)</span>,</span>
+<span>    linewidth <span class="op">=</span> <span class="fl">0.8</span></span>
+<span>  <span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_manual.html" class="external-link">scale_colour_manual</a></span><span class="op">(</span>values <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>    <span class="st">"Five-year window"</span> <span class="op">=</span> <span class="st">"#0072B2"</span>, <span class="st">"Leave-one-out"</span> <span class="op">=</span> <span class="st">"#D55E00"</span></span>
+<span>  <span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Year"</span>, y <span class="op">=</span> <span class="st">"Water level (feet)"</span>, colour <span class="op">=</span> <span class="cn">NULL</span>, linetype <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggtheme.html" class="external-link">theme_minimal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/theme.html" class="external-link">theme</a></span><span class="op">(</span>legend.position <span class="op">=</span> <span class="st">"bottom"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="naboer_files/figure-html/lake-curves-1.png" class="r-plt" alt="Observed annual water levels at Lake Huron and two fitted curves. The curve selected with the five-year window follows broader changes than the leave-one-out curve." width="672"></p>
+<p>Use <code>method = "QNCV"</code> for mgcv’s quadratic approximation
+to the score. For a Gaussian model with the identity link, as above, the
+loss is already quadratic. <a href="https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/NCV.html" class="external-link">mgcv
+NCV documentation</a>.</p>
+<p>You can also use naboer to choose smoothness for <a href="temporal.html#choose-smoothness-for-a-time-series">soil moisture
+over time</a>, <a href="spatial.html#choose-smoothness-for-spatial-data">daily maximum
+temperature across weather stations</a> and <a href="ecological.html#predict-carbon-dioxide-uptake-for-a-new-plant">carbon
+dioxide uptake by plants</a>.</p>
+</div>
 <div class="section level2">
 <h2 id="inspect-a-fold">Inspect a fold<a class="anchor" aria-label="anchor" href="#inspect-a-fold"></a>
 </h2>
 <p>Create eight observations in time order. We will score rows 3 and 6
 in separate folds, leaving out one extra row on either side of each
 target.</p>
-<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">x</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>time <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">8</span>, y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">2</span>, <span class="fl">4</span>, <span class="fl">3</span>, <span class="fl">5</span>, <span class="fl">7</span>, <span class="fl">6</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>Use <code><a href="../reference/custom_folds.html">custom_folds()</a></code> to specify the two sets of row
 numbers for each fold.</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/custom_folds.html">custom_folds</a></span><span class="op">(</span><span class="va">x</span>, assessment <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fl">3L</span>, <span class="fl">6L</span><span class="op">)</span>, omission <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fl">2</span><span class="op">:</span><span class="fl">4</span>, <span class="fl">5</span><span class="op">:</span><span class="fl">7</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>The fold table shows how many rows are in each set. The
 <code>n_buffer</code> column counts the extra omissions. They appear as
 <code>buffer_size</code> in <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code> and as
 <code>omitted</code> in plots.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">folds</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 6</span></span></span>
 <span><span class="co">#&gt;   fold  n_assessment n_omission n_analysis n_buffer omitted_fraction</span></span>
@@ -126,7 +219,7 @@ numbers for each fold.</p>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> 2                1          3          5        2            0.375</span></span></code></pre></div>
 <p>Inspect the row numbers for the first fold. Row 3 is scored, rows 2
 and 4 are also left out, and rows 1 and 5 to 8 are used for fitting.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/assessment_indices.html">assessment_indices</a></span><span class="op">(</span><span class="va">folds</span>, folds <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [[1]]</span></span>
 <span><span class="co">#&gt; [1] 3</span></span>
@@ -208,33 +301,11 @@ to which information would actually be available when making the
 prediction.</p>
 </div>
 <div class="section level2">
-<h2 id="fit-a-model-with-mgcv">Fit a model with mgcv<a class="anchor" aria-label="anchor" href="#fit-a-model-with-mgcv"></a>
-</h2>
-<p>Prepare the data you will use in the model before constructing folds.
-Row numbers in the design refer to the data returned by
-<code><a href="../reference/fold_data.html">fold_data()</a></code>. Use that data for fitting, or supply your
-model data to <code>as_nei(data = ...)</code> to check alignment. If you
-set <code>id</code> when constructing the folds, the check compares the
-identifiers in order. Otherwise, it compares all columns, including
-their order, types and values. Rebuild the folds if you change the
-observations.</p>
-<p>Pass the exported design as <code>nei</code> to mgcv’s
-<code>gam()</code> with <code>method = "NCV"</code> or
-<code>method = "QNCV"</code>. Without <code>nei</code>, mgcv uses
-leave-one-out cross-validation. With <code>nei</code>, mgcv scores
-predictions for the supplied assessment rows under the supplied
-omissions. The final model uses all observations, with smoothness chosen
-by that criterion. QNCV uses a quadratic approximation to the score. For
-Gaussian models with the identity link, as in the worked examples, the
-loss is already quadratic. <a href="https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/NCV.html" class="external-link">mgcv
-NCV documentation</a>.</p>
-</div>
-<div class="section level2">
 <h2 id="read-the-exported-indices">Read the exported indices<a class="anchor" aria-label="anchor" href="#read-the-exported-indices"></a>
 </h2>
 <p>To see how larger omissions are represented, export the original
 two-fold design.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">folds</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $a</span></span>
 <span><span class="co">#&gt; [1] 2 3 4 5 6 7</span></span>
@@ -254,29 +325,19 @@ positions 1 to 3 and the second uses positions 4 to 6. The pair
 <code>d</code> and <code>md</code> works the same way for assessment. If
 a row is assessed in several folds, each assessment contributes to the
 criterion without automatic reweighting.</p>
+<p>When you pass your model data to <code>as_nei(data = ...)</code>, the
+alignment check compares the row identifiers in order if you set
+<code>id</code> when constructing the folds. Otherwise it compares all
+columns, including their order, types and values. Export for mgcv
+requires at least two folds. You can inspect a single fold in naboer or
+use its row indices for a separate refit.</p>
 <div class="section level3">
 <h3 id="sample-folds-in-bam">Sample folds in bam<a class="anchor" aria-label="anchor" href="#sample-folds-in-bam"></a>
 </h3>
-<p><code>gam()</code> supports neighbourhood cross-validation (NCV) and
-its quadratic variant (QNCV). <code>bam()</code> supports NCV with
-<code>discrete = TRUE</code>. To compute the <code>bam()</code>
-criterion on a sample of folds, keep the full design and pass
-<code>sample</code> to <code><a href="../reference/as_nei.html">as_nei()</a></code>. For example, create one
-fold per row that omits its immediate neighbours in time, then choose
-three folds explicitly.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">buffered</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/neighbourhoods.html">neighbourhoods</a></span><span class="op">(</span><span class="va">x</span>,</span>
-<span>  index <span class="op">=</span> <span class="va">time</span>, temporal <span class="op">=</span> <span class="fu"><a href="../reference/temporal_window.html">temporal_window</a></span><span class="op">(</span><span class="fu"><a href="../reference/time_span.html">time_span</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">sampled_nei</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">buffered</span>, sample <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1L</span>, <span class="fl">3L</span>, <span class="fl">5L</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">sampled_nei</span><span class="op">$</span><span class="va">sample</span></span>
-<span><span class="co">#&gt; [1] 1 3 5</span></span></code></pre></div>
-<p>When any fold omits more than one row, mgcv 1.9-4 requires explicit
-fold numbers for sampling. From mgcv 1.9-5, you can also supply a count,
-such as <code>sample = 3L</code>. To use every fold, leave
-<code>sample</code> unset. Export for mgcv requires at least two folds.
-You can still inspect a single fold in naboer or use it for a separate
-refit.</p>
+<p><code><a href="https://rdrr.io/pkg/mgcv/man/bam.html" class="external-link">bam()</a></code> supports NCV with <code>discrete = TRUE</code>. To
+choose smoothness with a sample of folds, keep the full design and pass
+<code>sample</code> to <code><a href="../reference/as_nei.html">as_nei()</a></code>. The <a href="performance.html#fitting-with-sampled-neighbourhoods">Mauna Loa
+example</a> fits a trend and seasonal cycle using this approach.</p>
 </div>
 <div class="section level3">
 <h3 id="covariance-and-standard-errors">Covariance and standard errors<a class="anchor" aria-label="anchor" href="#covariance-and-standard-errors"></a>
@@ -294,16 +355,16 @@ numbers to that order. On those releases, requesting raw jackknife
 covariance with <code>jackknife = TRUE</code> requires this assessment
 layout.</p>
 <p>In mgcv 1.9-5, the default dependence-adjusted covariance in
-<code>gam()</code> can count a model offset twice. Use
+<code><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam()</a></code> can count a model offset twice. Use
 <code>as_nei(folds, jackknife = FALSE)</code> if standard Bayesian
 covariance is appropriate for your model. For discrete
-<code>bam()</code> in that release, check that prediction standard
+<code><a href="https://rdrr.io/pkg/mgcv/man/bam.html" class="external-link">bam()</a></code> in that release, check that prediction standard
 errors are finite and that the covariance matrix has no substantially
 negative eigenvalues. A sample of one fold can also trigger a warning
 about taking a maximum over an empty set.</p>
-<p><code>bam()</code> applies NCV to a penalised linear approximation of
+<p><code><a href="https://rdrr.io/pkg/mgcv/man/bam.html" class="external-link">bam()</a></code> applies NCV to a penalised linear approximation of
 the model. An exact non-Gaussian refit uses the full loss function. The
-implementation in <code>bam()</code> is designed for small
+implementation in <code><a href="https://rdrr.io/pkg/mgcv/man/bam.html" class="external-link">bam()</a></code> is designed for small
 neighbourhoods and can be expensive when folds omit large blocks. <a href="https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/NCV.html" class="external-link">mgcv
 NCV documentation</a>, <a href="https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/bam.html" class="external-link">mgcv
 bam documentation</a>.</p>

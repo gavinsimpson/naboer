@@ -4,31 +4,169 @@
 
 library("naboer")
 library("tibble")
+library("mgcv")
+library("datasets")
+
+have_gratia <- requireNamespace("gratia", quietly = TRUE)
+if (have_gratia) {
+  library("gratia")
+  library("ggplot2")
+}
 ```
 
 naboer builds the `nei` argument that mgcv uses to select smoothness by
 neighbourhood cross-validation (NCV) or its quadratic variant (QNCV).
-Start with a worked example that makes a neighbourhood for each
-observation, fits a smooth and compares it with leave-one-out selection.
-[Soil moisture over
-time](https://gavinsimpson.github.io/naboer/articles/temporal.html#choose-smoothness-for-a-time-series).
-[Daily maximum temperature across weather
-stations](https://gavinsimpson.github.io/naboer/articles/spatial.html#choose-smoothness-for-spatial-data).
 
-Suppose you want to predict a measurement at a new location. If
-measurements from nearby locations are similar, fitting the model with
-those neighbours may make the prediction task easier than the one you
-care about. A cross-validation fold can leave out the target location
-and its neighbours, then score the prediction only at the target.
+## Fit a model with mgcv
 
-naboer distinguishes three sets of rows in each fold.
+How smooth a curve would you use to estimate the water level in the
+middle of a five-year gap in the record? To mimic that prediction task,
+leave out the year to be predicted and the two years on either side,
+then score the prediction for the middle year.
 
-- **Assessment** rows are the ones whose predictions contribute to the
-  score.
-- **Omission** rows are left out when fitting. They include every
-  assessment row and can also include neighbours, observations from the
-  future, or observations outside a fixed-length training window.
-- **Analysis** rows are the remaining rows used to fit the model.
+R includes annual measurements of Lake Huron water levels from 1875 to
+1972. Use the calendar year as the model predictor and the start of each
+year as the index for constructing folds. The recorded levels are in
+feet. [Lake Huron data
+documentation](https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/LakeHuron.html).
+
+``` r
+
+year <- as.integer(time(LakeHuron))
+lake <- tibble(
+  year = year,
+  date = as.Date(sprintf("%d-01-01", year)),
+  level = as.numeric(LakeHuron)
+)
+```
+
+Create one fold per year with a window that reaches two calendar years
+before and after the target. Near the ends of the record it includes
+only the neighbours that are available.
+
+``` r
+
+lake_folds <- neighbourhoods(lake,
+  index = date, temporal = temporal_window(time_span(2, "years", type = "calendar"))
+)
+```
+
+Check the fold for 1925. The **assessment** is the year whose prediction
+is scored. The **omission** includes the assessment year and its
+neighbours, 1923 to 1927. The remaining years make up the **analysis**
+data used for fitting that fold.
+
+``` r
+
+lake_data <- fold_data(lake_folds)
+target <- match(1925L, lake_data$year)
+lake_data$year[assessment_indices(lake_folds, folds = target)[[1]]]
+#> [1] 1925
+lake_data$year[omission_indices(lake_folds, folds = target)[[1]]]
+#> [1] 1923 1924 1925 1926 1927
+```
+
+The exported indices refer to rows of
+[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md).
+Pass those data to
+[`as_nei()`](https://gavinsimpson.github.io/naboer/reference/as_nei.md)
+to check the alignment and use the same data to fit the model. If you
+change the observations, rebuild the folds before fitting.
+
+``` r
+
+lake_nei <- as_nei(lake_folds, data = lake_data)
+```
+
+Fit water level as a smooth function of year. Supply `nei` and
+`method = "NCV"` to [`gam()`](https://rdrr.io/pkg/mgcv/man/gam.html) to
+choose smoothness using the five-year windows.
+
+``` r
+
+lake_ncv <- gam(level ~ s(year, k = 20),
+  data = lake_data, method = "NCV", nei = lake_nei, na.action = na.fail
+)
+```
+
+Fit the same model with `nei` omitted. With `method = "NCV"`, mgcv then
+leaves out only the year it scores. Both final fits use the full record,
+with the smoothing parameter chosen by their respective criteria.
+
+``` r
+
+lake_loo <- gam(level ~ s(year, k = 20),
+  data = lake_data, method = "NCV", na.action = na.fail
+)
+```
+
+Use gratia to compare the effective degrees of freedom (EDF) of the two
+smooths. The fit selected with the five-year window has lower EDF and
+follows broader changes in water level.
+
+``` r
+
+tibble(
+  criterion = c("Leave-one-out", "Five-year window"),
+  effective_degrees_of_freedom = c(edf(lake_loo)$.edf, edf(lake_ncv)$.edf)
+)
+#> # A tibble: 2 × 2
+#>   criterion        effective_degrees_of_freedom
+#>   <chr>                                   <dbl>
+#> 1 Leave-one-out                           16.8 
+#> 2 Five-year window                         2.07
+```
+
+Use
+[`add_fitted()`](https://gavinsimpson.github.io/gratia/reference/add_fitted.html)
+to attach the fitted values to their years for plotting.
+
+``` r
+
+lake_curves <- rbind(
+  transform(add_fitted(lake_data, lake_loo, value = "fitted_level"),
+    criterion = "Leave-one-out"
+  ),
+  transform(add_fitted(lake_data, lake_ncv, value = "fitted_level"),
+    criterion = "Five-year window"
+  )
+)
+```
+
+Overlay the two fitted curves on the observed water levels.
+
+``` r
+
+ggplot(lake_data, aes(x = year)) +
+  geom_point(aes(y = level), colour = "grey50", size = 1.2) +
+  geom_line(
+    data = lake_curves,
+    aes(y = fitted_level, colour = criterion, linetype = criterion),
+    linewidth = 0.8
+  ) +
+  scale_colour_manual(values = c(
+    "Five-year window" = "#0072B2", "Leave-one-out" = "#D55E00"
+  )) +
+  labs(x = "Year", y = "Water level (feet)", colour = NULL, linetype = NULL) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+![Observed annual water levels at Lake Huron and two fitted curves. The
+curve selected with the five-year window follows broader changes than
+the leave-one-out curve.](naboer_files/figure-html/lake-curves-1.png)
+
+Use `method = "QNCV"` for mgcv’s quadratic approximation to the score.
+For a Gaussian model with the identity link, as above, the loss is
+already quadratic. [mgcv NCV
+documentation](https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/NCV.html).
+
+You can also use naboer to choose smoothness for [soil moisture over
+time](https://gavinsimpson.github.io/naboer/articles/temporal.html#choose-smoothness-for-a-time-series),
+[daily maximum temperature across weather
+stations](https://gavinsimpson.github.io/naboer/articles/spatial.html#choose-smoothness-for-spatial-data)
+and [carbon dioxide uptake by
+plants](https://gavinsimpson.github.io/naboer/articles/ecological.html#predict-carbon-dioxide-uptake-for-a-new-plant).
 
 ## Inspect a fold
 
@@ -114,27 +252,6 @@ observations from other domains, including later observations, can
 remain available for fitting. Define domains according to which
 information would actually be available when making the prediction.
 
-## Fit a model with mgcv
-
-Prepare the data you will use in the model before constructing folds.
-Row numbers in the design refer to the data returned by
-[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md).
-Use that data for fitting, or supply your model data to
-`as_nei(data = ...)` to check alignment. If you set `id` when
-constructing the folds, the check compares the identifiers in order.
-Otherwise, it compares all columns, including their order, types and
-values. Rebuild the folds if you change the observations.
-
-Pass the exported design as `nei` to mgcv’s `gam()` with
-`method = "NCV"` or `method = "QNCV"`. Without `nei`, mgcv uses
-leave-one-out cross-validation. With `nei`, mgcv scores predictions for
-the supplied assessment rows under the supplied omissions. The final
-model uses all observations, with smoothness chosen by that criterion.
-QNCV uses a quadratic approximation to the score. For Gaussian models
-with the identity link, as in the worked examples, the loss is already
-quadratic. [mgcv NCV
-documentation](https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/NCV.html).
-
 ## Read the exported indices
 
 To see how larger omissions are represented, export the original
@@ -163,31 +280,22 @@ to 6. The pair `d` and `md` works the same way for assessment. If a row
 is assessed in several folds, each assessment contributes to the
 criterion without automatic reweighting.
 
+When you pass your model data to `as_nei(data = ...)`, the alignment
+check compares the row identifiers in order if you set `id` when
+constructing the folds. Otherwise it compares all columns, including
+their order, types and values. Export for mgcv requires at least two
+folds. You can inspect a single fold in naboer or use its row indices
+for a separate refit.
+
 ### Sample folds in bam
 
-`gam()` supports neighbourhood cross-validation (NCV) and its quadratic
-variant (QNCV). `bam()` supports NCV with `discrete = TRUE`. To compute
-the `bam()` criterion on a sample of folds, keep the full design and
-pass `sample` to
+[`bam()`](https://rdrr.io/pkg/mgcv/man/bam.html) supports NCV with
+`discrete = TRUE`. To choose smoothness with a sample of folds, keep the
+full design and pass `sample` to
 [`as_nei()`](https://gavinsimpson.github.io/naboer/reference/as_nei.md).
-For example, create one fold per row that omits its immediate neighbours
-in time, then choose three folds explicitly.
-
-``` r
-
-buffered <- neighbourhoods(x,
-  index = time, temporal = temporal_window(time_span(1))
-)
-sampled_nei <- as_nei(buffered, sample = c(1L, 3L, 5L))
-sampled_nei$sample
-#> [1] 1 3 5
-```
-
-When any fold omits more than one row, mgcv 1.9-4 requires explicit fold
-numbers for sampling. From mgcv 1.9-5, you can also supply a count, such
-as `sample = 3L`. To use every fold, leave `sample` unset. Export for
-mgcv requires at least two folds. You can still inspect a single fold in
-naboer or use it for a separate refit.
+The [Mauna Loa
+example](https://gavinsimpson.github.io/naboer/articles/performance.html#fitting-with-sampled-neighbourhoods)
+fits a trend and seasonal cycle using this approach.
 
 ### Covariance and standard errors
 
@@ -205,18 +313,21 @@ any explicit sample numbers to that order. On those releases, requesting
 raw jackknife covariance with `jackknife = TRUE` requires this
 assessment layout.
 
-In mgcv 1.9-5, the default dependence-adjusted covariance in `gam()` can
-count a model offset twice. Use `as_nei(folds, jackknife = FALSE)` if
-standard Bayesian covariance is appropriate for your model. For discrete
-`bam()` in that release, check that prediction standard errors are
-finite and that the covariance matrix has no substantially negative
-eigenvalues. A sample of one fold can also trigger a warning about
-taking a maximum over an empty set.
+In mgcv 1.9-5, the default dependence-adjusted covariance in
+[`gam()`](https://rdrr.io/pkg/mgcv/man/gam.html) can count a model
+offset twice. Use `as_nei(folds, jackknife = FALSE)` if standard
+Bayesian covariance is appropriate for your model. For discrete
+[`bam()`](https://rdrr.io/pkg/mgcv/man/bam.html) in that release, check
+that prediction standard errors are finite and that the covariance
+matrix has no substantially negative eigenvalues. A sample of one fold
+can also trigger a warning about taking a maximum over an empty set.
 
-`bam()` applies NCV to a penalised linear approximation of the model. An
-exact non-Gaussian refit uses the full loss function. The implementation
-in `bam()` is designed for small neighbourhoods and can be expensive
-when folds omit large blocks. [mgcv NCV
+[`bam()`](https://rdrr.io/pkg/mgcv/man/bam.html) applies NCV to a
+penalised linear approximation of the model. An exact non-Gaussian refit
+uses the full loss function. The implementation in
+[`bam()`](https://rdrr.io/pkg/mgcv/man/bam.html) is designed for small
+neighbourhoods and can be expensive when folds omit large blocks. [mgcv
+NCV
 documentation](https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/NCV.html),
 [mgcv bam
 documentation](https://stat.ethz.ch/R-manual/R-devel/library/mgcv/html/bam.html).
