@@ -164,16 +164,16 @@ outside each neighbourhood. Reciprocity means that whenever row `j` is in
 row `i`'s neighbourhood, row `i` is also in row `j`'s. Asymmetric windows can
 still define a cross-validation score.
 
-For mgcv through the tested 1.9-6 development version, `as_nei()` puts folds in
-data row order when each observation has exactly one fold assessing it alone.
-It also translates any explicit sample numbers to that order. On these versions,
-requesting the raw jackknife covariance with `jackknife = TRUE` requires that
-same assessment layout.
+On affected mgcv releases, `as_nei()` puts folds in data row order for
+covariance calculations when each observation has exactly one fold assessing
+it alone. It also translates any explicit sample numbers to that order. On
+those releases, requesting raw jackknife covariance with `jackknife = TRUE`
+requires this assessment layout.
 
-In mgcv 1.9-5 and the tested 1.9-6 development version, the default
-dependence-adjusted covariance in `gam()` can count a model offset twice.
+In mgcv 1.9-5, the default dependence-adjusted covariance in `gam()` can count
+a model offset twice.
 Use `as_nei(folds, jackknife = FALSE)` if standard Bayesian covariance is
-appropriate for your model. For discrete `bam()` on these versions, check that
+appropriate for your model. For discrete `bam()` in that release, check that
 prediction standard errors are finite and that the covariance matrix has no
 substantially negative eigenvalues. A sample of one fold can also trigger a
 warning about taking a maximum over an empty set.

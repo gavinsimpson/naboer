@@ -19,8 +19,9 @@ as_nei(
 vector of input fold numbers. A length-one value always means a count.}
 
 \item{jackknife}{Optional logical gam covariance setting. \code{NULL} preserves
-mgcv's default by omitting the field. With mgcv through 1.9-6, \code{TRUE}
-requires exactly one singleton assessment fold per observation.}
+mgcv's default by omitting the field. On versions that require focal folds
+in observation order, \code{TRUE} requires exactly one singleton assessment fold
+per observation.}
 
 \item{max_bytes}{Maximum estimated packed output size in bytes; defaults to
 option \code{naboer.max_bytes}, or 1 GiB. Use \code{Inf} to disable the memory guard.}
@@ -39,10 +40,11 @@ Export requires at least two folds for compatibility with the tested mgcv
 integration. Single native folds remain usable for inspection and rsample.
 }
 \details{
-For mgcv through 1.9-6, designs with one singleton assessment fold per
-observation are packed in observation order for covariance calculations.
-Explicit sample indices are translated from input fold numbers to packed fold
-numbers. A sample containing every fold is exported without a sampling field.
+For compatibility with covariance calculations in affected versions of mgcv,
+designs with one singleton assessment fold per observation are packed in
+observation order. Explicit sample indices are translated from input fold
+numbers to packed fold numbers. On these versions, a sample containing every
+fold is exported without a sampling field.
 
 For nonsingleton omissions, sampling by count requires mgcv 1.9-5 or later
 because 1.9-4 samples packed endpoints instead of fold numbers. With 1.9-4,

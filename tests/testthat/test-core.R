@@ -191,7 +191,7 @@ test_that("affected mgcv versions receive focal folds and samples in row order",
   indices <- c(4L, 1L, 5L, 2L, 3L)
   canonical <- custom_folds(data, as.list(1:5), omissions)
   permuted <- custom_folds(data, as.list(indices), omissions[indices])
-  version <- package_version("1.9-6")
+  version <- package_version("1.9-5")
   testthat::local_mocked_bindings(nei_mgcv_version = function() version)
 
   plain <- as_nei(canonical)
@@ -212,7 +212,7 @@ test_that("explicit jackknife requires complete focal assessment on affected mgc
   block <- custom_folds(data, list(1:2, 3:5))
   partial <- custom_folds(data, list(1L, 4L))
   repeated <- custom_folds(data, as.list(c(1L, 2L, 3L, 4L, 4L)))
-  version <- package_version("1.9-6")
+  version <- package_version("1.9-5")
   testthat::local_mocked_bindings(nei_mgcv_version = function() version)
 
   for (folds in list(block, partial, repeated)) {

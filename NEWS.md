@@ -30,10 +30,10 @@
 
 ## Bug fixes
 
-* Export complete focal designs in observation order for covariance in mgcv
-  through 1.9-6. Preserve which folds are sampled and omit the sampling field
-  when all folds are selected. Reject explicit jackknife covariance for
-  unsupported assessment layouts on affected versions.
+* On affected mgcv releases, export complete focal designs in observation order
+  for covariance calculations. Preserve which folds are sampled and omit the
+  sampling field when all folds are selected. Reject explicit jackknife
+  covariance for unsupported assessment layouts on those releases.
 * Preserve geometry type and coordinate precision when reusing spatial
   neighbourhoods. Fold plots use the active geometry column.
 * Keep cubble source row identifiers aligned when temporal conversion sorts

@@ -6,10 +6,11 @@
 #' Export requires at least two folds for compatibility with the tested mgcv
 #' integration. Single native folds remain usable for inspection and rsample.
 #'
-#' For mgcv through 1.9-6, designs with one singleton assessment fold per
-#' observation are packed in observation order for covariance calculations.
-#' Explicit sample indices are translated from input fold numbers to packed fold
-#' numbers. A sample containing every fold is exported without a sampling field.
+#' For compatibility with covariance calculations in affected versions of mgcv,
+#' designs with one singleton assessment fold per observation are packed in
+#' observation order. Explicit sample indices are translated from input fold
+#' numbers to packed fold numbers. On these versions, a sample containing every
+#' fold is exported without a sampling field.
 #'
 #' For nonsingleton omissions, sampling by count requires mgcv 1.9-5 or later
 #' because 1.9-4 samples packed endpoints instead of fold numbers. With 1.9-4,
@@ -18,8 +19,9 @@
 #' @param sample Optional bam sampling specification: one positive count, or a
 #'   vector of input fold numbers. A length-one value always means a count.
 #' @param jackknife Optional logical gam covariance setting. `NULL` preserves
-#'   mgcv's default by omitting the field. With mgcv through 1.9-6, `TRUE`
-#'   requires exactly one singleton assessment fold per observation.
+#'   mgcv's default by omitting the field. On versions that require focal folds
+#'   in observation order, `TRUE` requires exactly one singleton assessment fold
+#'   per observation.
 #' @param max_bytes Maximum estimated packed output size in bytes; defaults to
 #'   option `naboer.max_bytes`, or 1 GiB. Use `Inf` to disable the memory guard.
 #' @param data Optional data used for alignment checking. Supply unchanged
@@ -154,7 +156,7 @@ nei_mgcv_version <- function() {
 }
 
 nei_needs_covariance_workaround <- function(version) {
-  version <= "1.9-6"
+  version < "1.9-7"
 }
 
 nei_complete_focal <- function(d, md, n) {
