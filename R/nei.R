@@ -1,20 +1,28 @@
 #' Export mgcv neighbourhood structures
 #'
 #' The result is a plain list of one-based indices, with cumulative endpoints.
-#' No rescaling of repeated assessments or covariance settings is performed.
-#' Neighbourhood sampling preserves the complete structure needed by bam.
+#' Repeated assessments retain their original weight. Neighbourhood sampling
+#' preserves the complete structure needed by bam.
 #' Export requires at least two folds for compatibility with the tested mgcv
 #' integration. Single native folds remain usable for inspection and rsample.
-#' In mgcv 1.9-4, scalar sampling incorrectly samples packed endpoints for
-#' nonsingleton omissions. For these designs, supply at least two explicit fold
-#' numbers, or omit `sample` to use every fold. This compatibility restriction
-#' is enforced without requiring mgcv to be installed.
+#'
+#' For mgcv through 1.9-6, designs with one singleton assessment fold per
+#' observation are packed in observation order for covariance calculations.
+#' Explicit sample indices are translated from input fold numbers to packed fold
+#' numbers. A sample containing every fold is exported without a sampling field.
+#' The same precautions apply when mgcv is unavailable.
+#'
+#' For nonsingleton omissions, sampling by count requires mgcv 1.9-5 or later
+#' because 1.9-4 samples packed endpoints instead of fold numbers. With 1.9-4
+#' or when mgcv is unavailable, use at least two explicit fold numbers or use
+#' all folds.
 #' @param x A `naboer_folds` object.
 #' @param sample Optional bam sampling specification: one positive count, or a
-#'   vector of neighbourhood numbers. A length-one value always means a count
-#'   and is supported only when every omission set is a singleton.
+#'   vector of input fold numbers. A length-one value always means a count.
 #' @param jackknife Optional logical gam covariance setting. `NULL` preserves
-#'   mgcv's default by omitting the field.
+#'   mgcv's default by omitting the field. With mgcv through 1.9-6 or when mgcv
+#'   is unavailable, `TRUE` requires exactly one singleton assessment fold per
+#'   observation.
 #' @param max_bytes Maximum estimated packed output size in bytes; defaults to
 #'   option `naboer.max_bytes`, or 1 GiB. Use `Inf` to disable the memory guard.
 #' @param data Optional data used for alignment checking. Supply unchanged
@@ -35,6 +43,8 @@ as_nei <- function(x, sample = NULL, jackknife = NULL,
   }
   m <- index_nfold(x$assessment)
   check_nei_fold_count(m)
+  version <- nei_mgcv_version()
+  needs_covariance_workaround <- nei_needs_covariance_workaround(version)
   if (!is.null(jackknife) && (!is.logical(jackknife) || length(jackknife) != 1L || is.na(jackknife))) abort_naboer("`jackknife` must be NULL, TRUE or FALSE.")
   if (!is.null(sample)) {
     if (!is.numeric(sample) || !length(sample) || anyNA(sample) || any(!is.finite(sample)) ||
@@ -43,19 +53,33 @@ as_nei <- function(x, sample = NULL, jackknife = NULL,
       abort_naboer("`sample` must be a positive fold count or unique valid fold indices.")
     }
     sample <- as.integer(sample)
-    check_nei_scalar_sample(sample, index_sizes(x$omission))
+    if (needs_covariance_workaround && (length(sample) == m ||
+      (length(sample) == 1L && sample == m))) sample <- NULL
   }
   if (!is.numeric(max_bytes) || length(max_bytes) != 1L || is.na(max_bytes) || max_bytes < 0) abort_naboer("`max_bytes` must be nonnegative or Inf.")
-  lengths <- c(sum(index_sizes(x$assessment)), sum(index_sizes(x$omission)))
+  omission_sizes <- index_sizes(x$omission)
+  check_nei_scalar_sample(sample, omission_sizes, version)
+  lengths <- c(sum(index_sizes(x$assessment)), sum(omission_sizes))
   if (any(lengths > .Machine$integer.max) || m > .Machine$integer.max) abort_naboer("The packed structure exceeds mgcv's integer index limit. Reduce the number or width of folds.", "overflow")
   bytes <- 4 * (sum(lengths) + 2 * m)
   if (bytes > max_bytes) abort_naboer(sprintf("Packed nei requires approximately %.1f MiB, exceeding `max_bytes`. Reduce the design or explicitly raise the limit.", bytes / 1024^2), "memory")
-  a <- pack_index(x$omission)
   d <- pack_index(x$assessment)
+  fold_order <- NULL
+  if (needs_covariance_workaround && nei_complete_focal(d$values, d$ends, x$ctx$n)) {
+    # With one assessment per observation, the assessment value identifies
+    # the new fold position. Keep the selected observations when remapping.
+    if (length(sample) > 1L) sample <- sort.int(d$values[sample])
+    rows <- seq_len(x$ctx$n)
+    if (!identical(d$values, rows)) {
+      fold_order <- order(d$values)
+      d$values <- rows
+    }
+  }
+  a <- pack_index(x$omission, folds = fold_order)
   out <- list(a = a$values, ma = a$ends, d = d$values, md = d$ends)
   if (!is.null(sample)) out$sample <- sample
   if (!is.null(jackknife)) out$jackknife <- jackknife
-  validate_nei(out, x$ctx$n)
+  validate_nei_version(out, x$ctx$n, version)
   out
 }
 
@@ -65,6 +89,10 @@ as_nei <- function(x, sample = NULL, jackknife = NULL,
 #' @return `x`, invisibly, or a structured error.
 #' @export
 validate_nei <- function(x, n) {
+  validate_nei_version(x, n, nei_mgcv_version())
+}
+
+validate_nei_version <- function(x, n, version) {
   n <- check_count(n, "n", 2L)
   required <- c("a", "ma", "d", "md")
   if (!is.list(x) || !all(required %in% names(x))) abort_naboer("Supply all of a, ma, d and md.", "structure")
@@ -87,13 +115,20 @@ validate_nei <- function(x, n) {
     if (anyDuplicated(a) || anyDuplicated(d) || !all(d %in% a) || length(a) >= n) abort_naboer("Invalid assessment/omission membership or empty analysis set.", "indices")
   }
   if (!is.null(x$jackknife) && (!is.logical(x$jackknife) || length(x$jackknife) != 1L || is.na(x$jackknife))) abort_naboer("Invalid jackknife setting.")
+  if (isTRUE(x$jackknife) && nei_needs_covariance_workaround(version) &&
+    !nei_complete_focal(x$d, x$md, n)) {
+    abort_naboer(paste0(
+      "`jackknife = TRUE` requires one singleton assessment fold per observation with this mgcv integration. ",
+      "Use `NULL` for mgcv's default or `FALSE` for its standard Bayesian covariance."
+    ), "compatibility")
+  }
   if (!is.null(x$sample)) {
     s <- x$sample
     if (!is.numeric(s) || !length(s) || anyNA(s) || any(!is.finite(s)) || any(s != floor(s)) ||
       any(s < 1 | s > length(x$ma)) || (length(s) > 1L && anyDuplicated(s))) {
       abort_naboer("Invalid sample setting.")
     }
-    check_nei_scalar_sample(s, diff(c(0, x$ma)))
+    check_nei_scalar_sample(s, diff(c(0, x$ma)), version)
   }
   invisible(x)
 }
@@ -107,11 +142,24 @@ check_nei_fold_count <- function(n) {
   }
 }
 
-check_nei_scalar_sample <- function(sample, omission_sizes) {
-  if (length(sample) == 1L && any(omission_sizes != 1)) {
+check_nei_scalar_sample <- function(sample, omission_sizes, version) {
+  if (length(sample) == 1L && (is.null(version) || version < "1.9-5") &&
+    any(omission_sizes != 1)) {
     abort_naboer(paste0(
-      "Scalar `sample` is unsafe for nonsingleton omissions in mgcv 1.9-4. ",
+      "Scalar `sample` for nonsingleton omissions requires mgcv 1.9-5 or later. ",
       "Supply at least two explicit fold numbers, or omit `sample` to use all folds."
     ), "compatibility")
   }
+}
+
+nei_mgcv_version <- function() {
+  tryCatch(utils::packageVersion("mgcv"), packageNotFoundError = function(e) NULL)
+}
+
+nei_needs_covariance_workaround <- function(version) {
+  is.null(version) || version <= "1.9-6"
+}
+
+nei_complete_focal <- function(d, md, n) {
+  length(md) == n && length(d) == n && !anyDuplicated(d)
 }

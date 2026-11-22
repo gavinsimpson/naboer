@@ -2,7 +2,8 @@
 #'
 #' Elapsed spans use seconds (a day is 86400 seconds); calendar spans use local
 #' calendar arithmetic. Calendar month and year arithmetic clamps invalid dates
-#' to the final day of the month. Count spans count ordered observations.
+#' to the final day of the month and preserves the local time of day, including
+#' fractional seconds. Count spans count ordered observations.
 #' Numeric time indices are interpreted in seconds. Tsibble year-week,
 #' year-month and year-quarter indices use the first date of each period for
 #' elapsed and calendar arithmetic; source index columns are preserved.
@@ -58,6 +59,10 @@ time_span <- function(n, unit = "seconds", type = "elapsed",
 }
 
 #' Describe an asymmetric temporal neighbourhood
+#'
+#' Window boundaries are inclusive. Elapsed windows compare the time difference
+#' to the requested span, allowing for floating-point roundoff at the boundary.
+#'
 #' @param before,after Temporal spans made with [time_span()].
 #' @return A temporal window specification.
 #' @export
@@ -156,8 +161,13 @@ temporal_shift <- function(x, span, multiplier = 1) {
   }
   need_package("clock")
   args <- list(x = x[changed], n = n[changed])
-  if (span$unit %in% c("months", "years")) args$invalid <- "previous"
+  if (span$unit %in% c("months", "years")) args$invalid <- "previous-day"
+  fraction <- NULL
   if (inherits(x, "POSIXt")) {
+    # clock's POSIXct methods only shift whole seconds.
+    seconds <- as.numeric(args$x)
+    fraction <- seconds - floor(seconds)
+    args$x <- args$x - fraction
     args$ambiguous <- span$ambiguous
     args$nonexistent <- span$nonexistent
   }
@@ -167,11 +177,84 @@ temporal_shift <- function(x, span, multiplier = 1) {
     months = clock::add_months,
     years = clock::add_years
   )
-  result <- tryCatch(do.call(fun, args), error = function(e) {
+  result <- tryCatch({
+    shifted <- do.call(fun, args)
+    if (!is.null(fraction) && any(fraction != 0)) {
+      if (span$nonexistent %in% c("roll-forward", "roll-backward")) {
+        # For a missing time the requested roll sets the cutoff itself.
+        fractional <- which(fraction != 0)
+        check <- args
+        check$x <- args$x[fractional]
+        check$n <- args$n[fractional]
+        check$nonexistent <- "NA"
+        fraction[fractional[is.na(do.call(fun, check))]] <- 0
+      }
+      shifted <- shifted + fraction
+    }
+    shifted
+  }, error = function(e) {
     abort_naboer(paste0("Calendar arithmetic failed: ", conditionMessage(e)), "time")
   })
   x[changed] <- result
   x
+}
+
+temporal_window_bounds <- function(x, window) {
+  time <- temporal_numeric(x)
+  before <- if (window$before$type == "elapsed") temporal_seconds(window$before)
+  after <- if (window$after$type == "elapsed") temporal_seconds(window$after)
+  lower <- if (is.null(before)) {
+    temporal_numeric(temporal_shift(x, window$before, -1))
+  } else {
+    time - before
+  }
+  upper <- if (is.null(after)) {
+    temporal_numeric(temporal_shift(x, window$after, 1))
+  } else {
+    time + after
+  }
+  list(time = time, lower = lower, upper = upper, before = before, after = after)
+}
+
+temporal_window_positions <- function(bounds, rows, values) {
+  time <- bounds$time[rows]
+  start <- temporal_find_interval(bounds$lower[rows], values, time, bounds$before, left_open = TRUE) + 1L
+  end <- temporal_find_interval(bounds$upper[rows], values, time, bounds$after, left_open = FALSE)
+  list(start = start, end = end)
+}
+
+temporal_find_interval <- function(bound, values, time, radius, left_open) {
+  position <- findInterval(bound, values, left.open = left_open)
+  if (is.null(radius) || radius == 0 || !length(values)) {
+    return(position)
+  }
+  # Compare the difference in both directions using the same threshold.
+  # Scaling the allowance by the span avoids dependence on the time origin.
+  radius <- min(radius + radius * .Machine$double.eps, .Machine$double.xmax)
+  precedes_bound <- function(value, at) {
+    if (left_open) at - value > radius else value - at <= radius
+  }
+  n <- length(values)
+  too_many <- position > 0L & !precedes_bound(values[pmax(position, 1L)], time)
+  too_few <- position < n & precedes_bound(values[pmin(position + 1, n)], time)
+  changed <- which(too_many | too_few)
+  if (!length(changed)) {
+    return(position)
+  }
+  # Rounding can shift the candidate across tied values. Re-search only the
+  # affected intervals to find the boundary of the entire tied set.
+  low <- ifelse(too_many[changed], 0L, position[changed])
+  high <- ifelse(too_few[changed], n, position[changed])
+  repeat {
+    pending <- which(low < high)
+    if (!length(pending)) break
+    middle <- low[pending] + ceiling((high[pending] - low[pending]) / 2)
+    accepted <- precedes_bound(values[middle], time[changed[pending]])
+    low[pending[accepted]] <- middle[accepted]
+    high[pending[!accepted]] <- middle[!accepted] - 1L
+  }
+  position[changed] <- as.integer(low)
+  position
 }
 
 temporal_compatible_origin <- function(x, origin) {
@@ -199,6 +282,7 @@ temporal_membership <- function(ctx, window, within = NULL) {
   count <- window$before$type == "count"
   domains <- temporal_domain_ids(ctx, within, count)
   if (count) temporal_unique_times(ctx, domains)
+  bounds <- if (!count) temporal_window_bounds(x, window)
   ord <- order(domains, x, seq_len(ctx$n))
   runs <- split(seq_along(ord), domains[ord])
   start <- end <- integer(ctx$n)
@@ -209,11 +293,9 @@ temporal_membership <- function(ctx, window, within = NULL) {
       lo <- pmax(1L, seq_len(n) - window$before$n)
       hi <- pmin(n, seq_len(n) + window$after$n)
     } else {
-      values <- temporal_numeric(x[rows])
-      lower <- temporal_numeric(temporal_shift(x[rows], window$before, -1))
-      upper <- temporal_numeric(temporal_shift(x[rows], window$after, 1))
-      lo <- findInterval(lower, values, left.open = TRUE) + 1L
-      hi <- findInterval(upper, values)
+      interval <- temporal_window_positions(bounds, rows, bounds$time[rows])
+      lo <- interval$start
+      hi <- interval$end
     }
     start[rows] <- positions[1L] + lo - 1L
     end[rows] <- positions[1L] + hi - 1L
@@ -441,7 +523,9 @@ forecast_folds <- function(data, initial = NULL, horizon, step = horizon,
         repeat {
           month_units <- c("months", "years")
           day_units <- c("days", "weeks")
-          if (initial$type == "calendar" && step$type == "calendar" &&
+          if (k == 0L) {
+            candidate <- first
+          } else if (initial$type == "calendar" && step$type == "calendar" &&
             ((initial$unit %in% month_units && step$unit %in% month_units) ||
               (initial$unit %in% day_units && step$unit %in% day_units))) {
             distance <- step

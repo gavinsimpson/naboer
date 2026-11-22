@@ -13,5 +13,6 @@ temporal_window(before, after = before)
 A temporal window specification.
 }
 \description{
-Describe an asymmetric temporal neighbourhood
+Window boundaries are inclusive. Elapsed windows compare the time difference
+to the requested span, allowing for floating-point roundoff at the boundary.
 }

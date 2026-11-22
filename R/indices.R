@@ -152,15 +152,20 @@ index_contains <- function(x, i, candidates) {
   candidates %in% index_get(x, i)
 }
 
-pack_index <- function(x) {
+pack_index <- function(x, folds = NULL) {
   sizes <- index_sizes(x)
+  if (is.null(folds)) {
+    folds <- seq_along(sizes)
+  } else {
+    sizes <- sizes[folds]
+  }
   total <- sum(sizes)
   values <- integer(total)
   # Fill directly rather than expanding a million intermediate list elements.
   pos <- 0
-  for (i in seq_len(index_nfold(x))) {
+  for (i in seq_along(folds)) {
     k <- sizes[[i]]
-    if (k) values[seq.int(pos + 1, pos + k)] <- sort(index_get(x, i))
+    if (k) values[seq.int(pos + 1, pos + k)] <- sort(index_get(x, folds[[i]]))
     pos <- pos + k
   }
   list(values = values, ends = as.integer(cumsum(sizes)))

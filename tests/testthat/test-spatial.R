@@ -52,6 +52,27 @@ test_that("station caching preserves domains, duplicates, and inclusive boundari
   )
 })
 
+test_that("the geometry cache distinguishes mixed types and close coordinates", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  endpoints <- rbind(c(0, 0), c(2, 0))
+  midpoint <- sf::st_point(c(1, 0))
+  geometry <- sf::st_sfc(
+    sf::st_multipoint(endpoints), sf::st_linestring(endpoints),
+    midpoint, sf::st_point(c(1 + .Machine$double.eps, 0)),
+    midpoint, sf::st_point(c(50, 0)),
+    crs = 3857
+  )
+  data <- sf::st_sf(id = seq_along(geometry), geometry = geometry)
+  radius <- units::set_units(0, "m")
+  distances <- sf::st_distance(data)
+  expected <- lapply(seq_len(nrow(data)), function(i) which(distances[i, ] <= radius))
+  expect_equal(omission_indices(neighbourhoods(data, spatial = spatial_window(radius))), expected)
+  expect_equal(expected[[3L]], c(2L, 3L, 5L))
+  focal <- custom_folds(data, list(3L))
+  expect_equal(omission_indices(buffer_folds(focal, spatial = spatial_window(radius))), expected[3L])
+})
+
 test_that("polygons use boundary distance rather than centroids", {
   skip_if_not_installed("sf")
   skip_if_not_installed("units")

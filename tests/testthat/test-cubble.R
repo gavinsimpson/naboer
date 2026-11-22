@@ -102,6 +102,26 @@ test_that("cubble source maps preserve unsorted outer and within-series order", 
   expect_equal(converted$source$.source_subrow, rep(1:3, 3))
 })
 
+test_that("source rows and subrows follow tsibble sorting during cubble conversion", {
+  skip_if_not_installed("cubble")
+  skip_if_not_installed("sf")
+  sites <- tibble::tibble(id = c("b", "a", "c"), x = 0:2, y = 0)
+  times <- tibble::tibble(id = c("b", "a", "b", "c"), time = c(2L, 3L, 1L, 4L))
+  times$.naboer_source_subrow <- times$time * 2L
+  times <- tsibble::as_tsibble(times, key = id, index = time)
+  cube <- cubble::make_cubble(sites, times, key = id, index = time, coords = c(x, y))
+  cube$ts[[1L]] <- cube$ts[[1L]][2:1, ]
+
+  canonical <- fold_data(loo_folds(cube))
+  source <- attr(canonical, "naboer_source", exact = TRUE)
+  expect_identical(source$.source_row, c(2L, 1L, 1L, 3L))
+  expect_identical(source$.source_subrow, c(1L, 2L, 1L, 1L))
+  expect_identical(canonical$id, cube$id[source$.source_row])
+  expect_identical(canonical$time, times$time)
+  expect_identical(canonical$.naboer_source_subrow, times$.naboer_source_subrow)
+  expect_false(".naboer_source_subrow.1" %in% names(canonical))
+})
+
 test_that("cubble adapters preserve active geometry when multiple sfc columns exist", {
   skip_if_not_installed("cubble")
   skip_if_not_installed("sf")

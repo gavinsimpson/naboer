@@ -37,6 +37,19 @@ test_that("plotting returns valid temporal and spatial plots", {
   expect_silent(ggplot2::ggplot_build(p))
 })
 
+test_that("spatial plots use the active geometry column", {
+  skip_if_not_installed("ggplot2")
+  skip_if_not_installed("sf")
+  spatial <- sf::st_as_sf(
+    data.frame(id = 1:3, x = 1:3, y = 0), coords = c("x", "y"), crs = 3857
+  )
+  spatial$alternate <- sf::st_geometry(spatial) + c(100, 0)
+  spatial <- spatial[c("id", "alternate", "geometry")]
+  plot <- ggplot2::autoplot(loo_folds(spatial))
+  expect_identical(attr(plot$data, "sf_column", exact = TRUE), "geometry")
+  expect_identical(sf::st_geometry(plot$data), sf::st_geometry(spatial))
+})
+
 test_that("single-window and combined neighbourhood contracts are explicit", {
   x <- tibble::tibble(time = c(3, 1, 5, 2, 4))
   expect_error(neighbourhoods(x), "at least one")

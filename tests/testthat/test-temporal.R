@@ -30,6 +30,35 @@ test_that("sorted temporal searches agree with brute-force inclusive windows", {
   }
 })
 
+test_that("elapsed window boundaries are reciprocal at decimal times", {
+  x <- data.frame(time = c(0.4, 0.1, 0.1, 1))
+  window <- temporal_window(time_span(0.3))
+  expected <- list(1:3, 1:3, 1:3, 4L)
+  folds <- neighbourhoods(x, temporal = window, index = time)
+  expect_identical(omission_indices(folds), expected)
+
+  # A rounded absolute bound can reach the next timestamp even when the
+  # elapsed distance is wider than the requested span.
+  spacing <- 2^-22
+  x$time <- 2^30 + c(0, spacing, spacing, 2)
+  folds <- neighbourhoods(x, temporal = temporal_window(time_span(0.75 * spacing)), index = time)
+  expect_identical(omission_indices(folds), list(1L, 2:3, 2:3, 4L))
+})
+
+test_that("joint space-time windows use the same elapsed boundaries", {
+  skip_if_not_installed("sf")
+  skip_if_not_installed("units")
+  x <- sf::st_as_sf(
+    data.frame(time = c(0.4, 0.1, 0.1, 1), x = c(0, 1, 1, 0), y = 0),
+    coords = c("x", "y"), crs = 3857
+  )
+  folds <- neighbourhoods(
+    x, spatial = spatial_window(units::set_units(1, "m")),
+    temporal = temporal_window(time_span(0.3)), combine = "intersection", index = time
+  )
+  expect_identical(omission_indices(folds), list(1:3, 1:3, 1:3, 4L))
+})
+
 test_that("count windows use stable series order and reject tied timestamps", {
   x <- tibble::tibble(
     series = c("a", "b", "a", "b", "a", "b"),
@@ -62,6 +91,33 @@ test_that("calendar months and years clamp month ends and leap dates", {
   expect_true(4L %in% index_get(z, 2))
 })
 
+test_that("clamping POSIXct month ends preserves the local time of day", {
+  skip_if_not_installed("clock")
+  times <- as.POSIXct(c(
+    "2025-02-28 09:00:00", "2025-02-28 12:00:00", "2025-02-28 15:00:00",
+    "2025-03-31 12:00:00", "2025-04-30 12:00:00"
+  ), tz = "Europe/Copenhagen") + 0.5
+  month <- time_span(1, "months", "calendar")
+  folds <- neighbourhoods(data.frame(time = times),
+    temporal = temporal_window(month, time_span(0)), index = time
+  )
+  expect_identical(omission_indices(folds)[[4L]], 2:4)
+  expect_identical(temporal_shift(times[4L], month), times[5L])
+  expect_identical(temporal_shift(times[4L], month, -1), times[2L])
+})
+
+test_that("fractional seconds survive calendar windows and forecast endpoints", {
+  skip_if_not_installed("clock")
+  origin <- as.POSIXct("1969-12-31 08:30:00", tz = "UTC") + 0.75
+  day <- time_span(1, "days", "calendar")
+  x <- data.frame(time = origin + c(0, 86400, 259200))
+  folds <- neighbourhoods(x, temporal = temporal_window(day), index = time)
+  expect_identical(omission_indices(folds), list(1:2, 1:2, 3L))
+  forecast <- forecast_folds(x, origins = origin, horizon = day, index = time)
+  expect_identical(analysis_indices(forecast), list(1L))
+  expect_identical(assessment_indices(forecast), list(2L))
+})
+
 test_that("calendar days differ from elapsed days across DST", {
   skip_if_not_installed("clock")
   x <- as.POSIXct("2024-03-30 12:00:00", tz = "Europe/Copenhagen")
@@ -73,6 +129,15 @@ test_that("calendar days differ from elapsed days across DST", {
   expect_error(temporal_shift(nonexistent, time_span(1, "days", "calendar")), class = "naboer_error_time")
   resolved <- temporal_shift(nonexistent, time_span(1, "days", "calendar", nonexistent = "roll-forward"))
   expect_equal(format(resolved, "%H:%M"), "03:00")
+  fractional <- nonexistent + 0.75
+  expect_identical(
+    temporal_shift(fractional, time_span(1, "days", "calendar", nonexistent = "roll-forward")),
+    resolved
+  )
+  expect_identical(
+    temporal_shift(fractional, time_span(1, "days", "calendar", nonexistent = "shift-forward")),
+    resolved + 1800.75
+  )
   ambiguous <- as.POSIXct("2024-10-26 02:30:00", tz = "Europe/Copenhagen")
   expect_error(temporal_shift(ambiguous, time_span(1, "days", "calendar")), class = "naboer_error_time")
 })
@@ -421,4 +486,19 @@ test_that("equivalent calendar origin steps retain the same leap-day anchor", {
   expect_equal(months$spec$origins, years$spec$origins)
   # The 2027 origin has no assessment before its 2028-02-28 endpoint.
   expect_equal(months$spec$origins, as.Date(c("2025-02-28", "2026-02-28", "2028-02-29")))
+})
+
+test_that("the first forecast origin uses the initial span's DST policy", {
+  skip_if_not_installed("clock")
+  times <- as.POSIXct("2024-10-26 00:30:00", tz = "UTC") +
+    c(0, 86400, 90000, 93600, 172800, 176400, 180000)
+  attr(times, "tzone") <- "Europe/Copenhagen"
+  folds <- forecast_folds(data.frame(time = times),
+    initial = time_span(1, "days", "calendar", ambiguous = "earliest"),
+    step = time_span(1, "days", "calendar", ambiguous = "latest"),
+    horizon = time_span(1, "hours"), index = time
+  )
+  expect_identical(folds$spec$origins, times[c(2, 6)])
+  expect_identical(analysis_indices(folds), list(1:2, 1:6))
+  expect_identical(assessment_indices(folds), list(3L, 7L))
 })

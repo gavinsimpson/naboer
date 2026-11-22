@@ -5,9 +5,8 @@
 * Added cross-validation folds with separate assessment and omission
   membership, validation, diagnostics, tibble views and plots. Designs export
   complete `nei` structures for mgcv NCV/QNCV, including optional neighbourhood
-  sampling and covariance settings. Compatibility checks require at least two
-  folds and explicit sampled fold numbers for nonsingleton omissions under the
-  tested mgcv 1.9-4 integration.
+  sampling and covariance settings. Export requires at least two folds.
+  Sampling by count for nonsingleton omissions requires mgcv 1.9-5 or later.
 * Added spatial, temporal and spatiotemporal neighbourhoods and block designs,
   asymmetric elapsed/calendar/count windows, buffers and rolling-origin
   forecasts across multiple series and independent domains. Shared forecasting
@@ -26,3 +25,17 @@
 ## User visible changes
 
 * The minimum supported R version is now 4.4.0.
+
+## Bug fixes
+
+* Export complete focal designs in observation order for covariance in mgcv
+  through 1.9-6. Preserve which folds are sampled and omit the sampling field
+  when all folds are selected. Reject explicit jackknife covariance for
+  unsupported assessment layouts on affected versions.
+* Preserve geometry type and coordinate precision when reusing spatial
+  neighbourhoods. Fold plots use the active geometry column.
+* Keep cubble source row identifiers aligned when temporal conversion sorts
+  observations, so rsample import rejects splits indexed in a different order.
+* Preserve time of day and fractional seconds under calendar shifts. Use the
+  initial span's daylight-saving rules for the first forecast origin and
+  include elapsed-window boundaries consistently in both directions.

@@ -30,7 +30,8 @@ tibble::as_tibble(f, folds = 1:3)
 
 Elapsed days are exactly 86,400 seconds. Calendar days follow local civil time
 and can span 23 or 25 hours across daylight-saving changes. Calendar months/years
-clamp invalid month-end dates. Ambiguous/nonexistent times error unless explicitly
+clamp invalid month-end dates while preserving the time of day, including
+fractional seconds. Ambiguous/nonexistent times error unless explicitly
 resolved with `time_span()` arguments. Numeric indices are seconds. Tsibble
 year-week/month/quarter indices use period-start dates for queries;
 `fold_data()` preserves their original class.
@@ -43,7 +44,8 @@ calendar boundaries matter.
 
 Observation-count spans count actual rows and require `within = "key"`. They do
 not infer missing observations. Resolve tied times within a counted series first.
-Duration windows can include simultaneous observations.
+Duration windows can include simultaneous observations. Elapsed windows include
+observations at the boundary, allowing for rounding of time differences.
 
 ```{r}
 blocks <- temporal_folds(x, time_span(4, "days"),
@@ -85,7 +87,9 @@ not fill them, and empty generated assessment windows are skipped. Explicit
 `origins` require nonempty training and assessment in every participating domain.
 Calendar sequences remain anchored to the original date when initial spans and
 steps both use months/years or both use days/weeks, preserving leap-day and
-month-end boundaries without cumulative clamping drift.
+month-end boundaries without cumulative clamping drift. The initial span's
+daylight-saving rules apply to the first origin. The step's rules apply to the
+subsequent origins.
 
 Count-based forecasting supports one series per independent domain. There is no
 common observation-count cutoff across asynchronous dependent series. Use a

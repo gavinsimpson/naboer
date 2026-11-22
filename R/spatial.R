@@ -20,11 +20,15 @@ spatial_window <- function(radius) {
   structure(list(radius = radius), class = "naboer_spatial_window")
 }
 
+geometry_columns <- function(data) {
+  cols <- names(data)[vapply(data, inherits, logical(1), "sfc")]
+  active <- attr(data, "sf_column", exact = TRUE)
+  if (length(active) == 1L && active %in% cols) active else cols
+}
+
 spatial_geometry <- function(ctx) {
   need_package("sf")
-  cols <- names(ctx$data)[vapply(ctx$data, inherits, logical(1), "sfc")]
-  active <- attr(ctx$data, "sf_column", exact = TRUE)
-  if (length(active) == 1L && active %in% cols) cols <- active
+  cols <- geometry_columns(ctx$data)
   if (length(cols) != 1L) {
     abort_naboer("Spatial operations require one active sf geometry column.", "geometry")
   }
@@ -53,8 +57,8 @@ spatial_membership <- function(ctx, window) {
     abort_naboer("`spatial` must be created with spatial_window().")
   }
   geom <- spatial_geometry(ctx)
-  unique_geom <- geom[!duplicated(geom)]
-  lookup <- match(geom, unique_geom)
+  lookup <- as.integer(vctrs::vec_group_id(as.list(geom)))
+  unique_geom <- geom[!duplicated(lookup)]
   membership <- vector("list", length(unique_geom))
   batch_size <- getOption("naboer.spatial_batch_size", 1000L)
   if (!is.numeric(batch_size) || length(batch_size) != 1L ||
@@ -356,22 +360,31 @@ cubble_data <- function(data) {
     abort_naboer("Cubble spatial keys must uniquely identify spatial records.", "alignment")
   }
   if (nested) {
-    lengths <- vapply(data$ts, nrow, integer(1))
-    source <- tibble::tibble(
-      .source_row = rep(seq_len(nrow(data)), lengths),
-      .source_subrow = sequence(lengths)
-    )
+    # The temporal face can sort tsibble-valued series. Carry each observation's
+    # position through conversion, then recover its outer row from the key.
+    column_names <- unique(c(names(data), unlist(lapply(data$ts, names), use.names = FALSE)))
+    subrow_column <- tail(make.unique(c(column_names, ".naboer_source_subrow")), 1L)
+    data$ts <- lapply(data$ts, function(series) {
+      series[[subrow_column]] <- seq_len(nrow(series))
+      series
+    })
     long <- tibble::as_tibble(cubble::face_temporal(data))
   } else {
     long <- tibble::as_tibble(data)
-    site <- vctrs::vec_match(long[key], spatial[key])
-    if (anyNA(site)) abort_naboer("Cubble observations have unmatched spatial keys.")
+  }
+  site <- vctrs::vec_match(long[key], spatial[key])
+  if (anyNA(site)) abort_naboer("Cubble observations have unmatched spatial keys.")
+  if (nested) {
+    source <- tibble::tibble(
+      .source_row = site, .source_subrow = long[[subrow_column]]
+    )
+    long[[subrow_column]] <- NULL
+  } else {
     source <- tibble::tibble(
       .source_row = seq_len(nrow(long)),
       .source_subrow = NA_integer_, .spatial_row = site
     )
   }
-  site <- vctrs::vec_match(long[key], spatial[key])
   for (column in setdiff(names(spatial), names(long))) {
     long[[column]] <- spatial[[column]][site]
   }
@@ -427,9 +440,7 @@ spatiotemporal_membership <- function(ctx, spatial, window, within = "domain") {
   first_domain <- domains[first]
   # Link geometry neighbours to temporal groups within the same domain/key.
   domain_groups <- split(seq_along(first), first_domain)
-  lower <- temporal_numeric(temporal_shift(x, window$before, -1))
-  upper <- temporal_numeric(temporal_shift(x, window$after, 1))
-  times <- temporal_numeric(x)
+  bounds <- temporal_window_bounds(x, window)
   starts <- stops <- focal <- list()
   edge <- 0L
   for (group in seq_along(positions)) {
@@ -439,9 +450,10 @@ spatiotemporal_membership <- function(ctx, spatial, window, within = "domain") {
     target_groups <- candidates[first_geometry[candidates] %in% neighbours]
     for (target in target_groups) {
       target_positions <- positions[[target]]
-      target_values <- times[order[target_positions]]
-      lo <- findInterval(lower[focal_rows], target_values, left.open = TRUE) + 1L
-      hi <- findInterval(upper[focal_rows], target_values)
+      target_values <- bounds$time[order[target_positions]]
+      interval <- temporal_window_positions(bounds, focal_rows, target_values)
+      lo <- interval$start
+      hi <- interval$end
       keep <- hi >= lo
       if (!any(keep)) next
       edge <- edge + 1L

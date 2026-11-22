@@ -76,6 +76,22 @@ test_that("nested cubble source-row resamples cannot silently change observation
   )
 })
 
+test_that("nested tsibble cubble resamples cannot silently change row order", {
+  skip_if_not_installed("rsample")
+  skip_if_not_installed("cubble")
+  skip_if_not_installed("sf")
+  sites <- tibble::tibble(id = c("b", "a", "c"), x = 0:2, y = 0)
+  times <- tsibble::as_tsibble(
+    tibble::tibble(id = sites$id, time = 1:3), key = id, index = time
+  )
+  cube <- cubble::make_cubble(sites, times, key = id, index = time, coords = c(x, y))
+  split <- rsample::make_splits(list(analysis = 2:3, assessment = 1L), cube)
+  expect_error(
+    from_rset(rsample::manual_rset(list(split), "station_b")),
+    "face_temporal", class = "naboer_error_alignment"
+  )
+})
+
 test_that("observation-level long cubble and canonical exports import faithfully", {
   skip_if_not_installed("rsample")
   skip_if_not_installed("cubble")

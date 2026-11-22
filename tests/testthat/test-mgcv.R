@@ -124,5 +124,42 @@ test_that("sampled bam NCV receives complete neighbourhoods for covariance", {
   expect_identical(fit$method, "NCV")
   expect_true(is.finite(fit$gcv.ubre))
   expect_true(all(is.finite(fit$Vp)))
+  expect_gte(min(eigen(fit$Vp, symmetric = TRUE, only.values = TRUE)$values), -1e-10)
+  expect_true(all(is.finite(stats::predict(fit, se.fit = TRUE)$se.fit)))
   expect_length(stats::fitted(fit), n)
+})
+
+test_that("permuted focal folds and samples preserve mgcv covariance", {
+  skip_if_not_installed("mgcv", minimum_version = "1.9.4")
+  skip_if_not(nei_needs_covariance_workaround(nei_mgcv_version()))
+  n <- 80L
+  rows <- seq_len(n)
+  data <- data.frame(x = seq(0, 1, length.out = n))
+  data$y <- sin(2 * pi * data$x) + 0.2 * cos(rows * 1.7)
+  omissions <- lapply(rows, function(i) seq.int(max(1L, i - 1L), min(n, i + 1L)))
+  canonical <- custom_folds(data, as.list(rows), omissions)
+  permuted <- custom_folds(data, as.list(rev(rows)), rev(omissions))
+
+  for (method in c("NCV", "QNCV")) {
+    first <- mgcv::gam(y ~ s(x, k = 8), data = data, method = method, nei = as_nei(canonical))
+    second <- mgcv::gam(y ~ s(x, k = 8), data = data, method = method, nei = as_nei(permuted))
+    expect_equal(first$Vp, second$Vp)
+    expect_equal(stats::predict(first, se.fit = TRUE), stats::predict(second, se.fit = TRUE))
+  }
+  samples <- seq.int(1L, n, by = 3L)
+  sampled <- mgcv::bam(y ~ s(x, k = 8), data = data, method = "NCV",
+    nei = as_nei(canonical, sample = samples), discrete = TRUE, nthreads = 1L
+  )
+  remapped <- mgcv::bam(y ~ s(x, k = 8), data = data, method = "NCV",
+    nei = as_nei(permuted, sample = match(samples, rev(rows))), discrete = TRUE, nthreads = 1L
+  )
+  expect_equal(sampled$gcv.ubre, remapped$gcv.ubre)
+  expect_equal(sampled$Vp, remapped$Vp)
+  all_folds <- mgcv::bam(y ~ s(x, k = 8), data = data, method = "NCV",
+    nei = as_nei(canonical), discrete = TRUE, nthreads = 1L
+  )
+  all_sampled <- mgcv::bam(y ~ s(x, k = 8), data = data, method = "NCV",
+    nei = as_nei(permuted, sample = rev(rows)), discrete = TRUE, nthreads = 1L
+  )
+  expect_equal(all_folds$Vp, all_sampled$Vp)
 })

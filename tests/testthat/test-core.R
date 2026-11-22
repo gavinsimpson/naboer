@@ -155,7 +155,7 @@ test_that("packed structure validation rejects broken endpoints and settings", {
   expect_error(validate_nei(broken, 5), "sample")
 })
 
-test_that("mgcv compatibility checks precede unsupported one-fold and scalar sampling", {
+test_that("mgcv compatibility checks reject single folds and gate scalar sampling", {
   data <- tibble::tibble(y = seq_len(8))
   one <- custom_folds(data, list(2L), list(1:3))
   expect_invisible(validate_folds(one))
@@ -168,13 +168,67 @@ test_that("mgcv compatibility checks precede unsupported one-fold and scalar sam
     class = "naboer_error_compatibility"
   )
   buffered <- custom_folds(data, list(2L, 5L, 7L), list(1:3, 4:6, 6:8))
-  expect_error(as_nei(buffered, sample = 2), "Scalar `sample` is unsafe",
-    class = "naboer_error_compatibility"
-  )
+  version <- NULL
+  testthat::local_mocked_bindings(nei_mgcv_version = function() version)
   packed <- as_nei(buffered)
   packed$sample <- 2L
-  expect_error(validate_nei(packed, 8), "explicit fold numbers",
-    class = "naboer_error_compatibility"
-  )
+  for (version in list(NULL, package_version("1.9-4"))) {
+    expect_error(as_nei(buffered, sample = 2), "requires mgcv 1.9-5",
+      class = "naboer_error_compatibility"
+    )
+    expect_error(validate_nei(packed, 8), "explicit fold numbers",
+      class = "naboer_error_compatibility"
+    )
+    expect_null(as_nei(buffered, sample = 3)$sample)
+  }
+  version <- package_version("1.9-5")
+  expect_identical(as_nei(buffered, sample = 2), packed)
+  expect_invisible(validate_nei(packed, 8))
   expect_identical(as_nei(buffered, sample = c(1L, 3L))$sample, c(1L, 3L))
+})
+
+test_that("affected mgcv versions receive focal folds and samples in row order", {
+  data <- tibble::tibble(y = 1:5)
+  omissions <- list(1:2, 1:3, 3:4, 2:5, 4:5)
+  indices <- c(4L, 1L, 5L, 2L, 3L)
+  canonical <- custom_folds(data, as.list(1:5), omissions)
+  permuted <- custom_folds(data, as.list(indices), omissions[indices])
+  version <- package_version("1.9-6")
+  testthat::local_mocked_bindings(nei_mgcv_version = function() version)
+
+  plain <- as_nei(canonical)
+  expect_identical(as_nei(permuted), plain)
+  expect_identical(as_nei(permuted, sample = c(4L, 1L))$sample, c(2L, 4L))
+  expect_identical(as_nei(permuted, sample = 5:1), plain)
+  expect_identical(as_nei(permuted, sample = 5L), plain)
+  expect_identical(assessment_indices(permuted), as.list(indices))
+
+  version <- package_version("1.9-7")
+  unchecked <- as_nei(permuted, sample = c(4L, 1L))
+  expect_identical(unchecked$d, indices)
+  expect_identical(unchecked$sample, c(4L, 1L))
+})
+
+test_that("explicit jackknife requires complete focal assessment on affected mgcv", {
+  data <- tibble::tibble(y = 1:5)
+  block <- custom_folds(data, list(1:2, 3:5))
+  partial <- custom_folds(data, list(1L, 4L))
+  repeated <- custom_folds(data, as.list(c(1L, 2L, 3L, 4L, 4L)))
+  version <- package_version("1.9-6")
+  testthat::local_mocked_bindings(nei_mgcv_version = function() version)
+
+  for (folds in list(block, partial, repeated)) {
+    expect_error(as_nei(folds, jackknife = TRUE), "one singleton assessment fold",
+      class = "naboer_error_compatibility"
+    )
+    expect_false(as_nei(folds, jackknife = FALSE)$jackknife)
+    expect_null(as_nei(folds)$jackknife)
+  }
+  packed <- as_nei(block)
+  packed$jackknife <- TRUE
+  expect_error(validate_nei(packed, 5L), "one singleton assessment fold")
+
+  version <- package_version("1.9-7")
+  expect_identical(as_nei(block, jackknife = TRUE), packed)
+  expect_invisible(validate_nei(packed, 5L))
 })

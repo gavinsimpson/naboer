@@ -101,7 +101,7 @@ autoplot.naboer_folds <- function(object, folds = 1L, ...) {
   rlang::check_dots_empty()
   selected <- fold_selection(object, folds)
   if (!length(selected)) abort_naboer("Select at least one fold to plot.")
-  geom <- names(object$ctx$data)[vapply(object$ctx$data, inherits, logical(1), "sfc")]
+  geom <- geometry_columns(object$ctx$data)
   pieces <- lapply(selected, function(i) {
     data <- object$ctx$data
     role <- rep("analysis", object$ctx$n)
