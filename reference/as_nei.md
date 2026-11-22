@@ -1,15 +1,11 @@
 # Export mgcv neighbourhood structures
 
 The result is a plain list of one-based indices, with cumulative
-endpoints. No rescaling of repeated assessments or covariance settings
-is performed. Neighbourhood sampling preserves the complete structure
-needed by bam. Export requires at least two folds for compatibility with
-the tested mgcv integration. Single native folds remain usable for
-inspection and rsample. In mgcv 1.9-4, scalar sampling incorrectly
-samples packed endpoints for nonsingleton omissions. For these designs,
-supply at least two explicit fold numbers, or omit `sample` to use every
-fold. This compatibility restriction is enforced without requiring mgcv
-to be installed.
+endpoints. Repeated assessments retain their original weight.
+Neighbourhood sampling preserves the complete structure needed by bam.
+Export requires at least two folds for compatibility with the tested
+mgcv integration. Single native folds remain usable for inspection and
+rsample.
 
 ## Usage
 
@@ -32,13 +28,13 @@ as_nei(
 - sample:
 
   Optional bam sampling specification: one positive count, or a vector
-  of neighbourhood numbers. A length-one value always means a count and
-  is supported only when every omission set is a singleton.
+  of input fold numbers. A length-one value always means a count.
 
 - jackknife:
 
   Optional logical gam covariance setting. `NULL` preserves mgcv's
-  default by omitting the field.
+  default by omitting the field. With mgcv through 1.9-6, `TRUE`
+  requires exactly one singleton assessment fold per observation.
 
 - max_bytes:
 
@@ -53,3 +49,15 @@ as_nei(
 ## Value
 
 A plain list with `a`, `ma`, `d`, `md`, and optional settings.
+
+## Details
+
+For mgcv through 1.9-6, designs with one singleton assessment fold per
+observation are packed in observation order for covariance calculations.
+Explicit sample indices are translated from input fold numbers to packed
+fold numbers. A sample containing every fold is exported without a
+sampling field.
+
+For nonsingleton omissions, sampling by count requires mgcv 1.9-5 or
+later because 1.9-4 samples packed endpoints instead of fold numbers.
+With 1.9-4, use at least two explicit fold numbers or use all folds.

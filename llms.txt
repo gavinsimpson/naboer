@@ -34,13 +34,11 @@ folds <- observations |>
 tibble::as_tibble(folds, folds = 1:3, membership = TRUE)
 nei <- as_nei(folds)
 
-if (requireNamespace("mgcv", quietly = TRUE)) {
-  fit <- mgcv::gam(
-    response ~ s(time, k = 8) + site,
-    data = fold_data(folds), method = "NCV", nei = nei,
-    na.action = stats::na.fail
-  )
-}
+fit <- mgcv::gam(
+  response ~ s(time, k = 8) + site,
+  data = fold_data(folds), method = "NCV", nei = nei,
+  na.action = stats::na.fail
+)
 ```
 
 Numeric time indices are seconds. For dates, use `Date`/`POSIXct` with
@@ -51,27 +49,34 @@ automatically.
 
 ## Space and time together
 
+Install `sf` for site geometries. Use `units`, which comes with a
+standard naboer installation, to specify distances for windows and
+buffers. For spatiotemporal data, use a cubble to link repeated
+measurements to site geometries. This example also requires `cubble`.
+
 ``` r
 
-if (requireNamespace("sf", quietly = TRUE) &&
-    requireNamespace("units", quietly = TRUE)) {
-  stations <- sf::st_as_sf(
-    tibble::tibble(site = c("a", "b", "c"), x = c(0, 1000, 5000), y = 0),
-    coords = c("x", "y"), crs = 32632
+stations <- sf::st_as_sf(
+  tibble::tibble(site = c("a", "b", "c"), x = c(0, 1000, 5000), y = 0),
+  coords = c("x", "y"), crs = 32632
+)
+space <- neighbourhoods(
+  stations, spatial = spatial_window(units::set_units(2, "km"))
+)
+measurements <- tibble::tibble(
+  site = rep(stations$site, each = 10),
+  date = rep(as.Date("2026-01-01") + 0:9, nrow(stations)),
+  value = seq_len(nrow(stations) * 10)
+)
+observations <- cubble::make_cubble(
+  spatial = stations, temporal = measurements, key = site, index = date
+)
+space_time <- observations |>
+  neighbourhoods(
+    spatial = spatial_window(units::set_units(2, "km")),
+    temporal = temporal_window(time_span(1, "days")),
+    combine = "intersection"
   )
-  space <- neighbourhoods(
-    stations, spatial = spatial_window(units::set_units(2, "km"))
-  )
-  observations <- stations[rep(seq_len(nrow(stations)), each = 10), ]
-  observations$date <- rep(as.Date("2026-01-01") + 0:9, nrow(stations))
-  space_time <- observations |>
-    neighbourhoods(
-      key = site, index = date,
-      spatial = spatial_window(units::set_units(2, "km")),
-      temporal = temporal_window(time_span(1, "days")),
-      combine = "intersection"
-    )
-}
 ```
 
 Supply both window arguments and explicitly choose
@@ -110,10 +115,13 @@ design after changing observations or their order. A valid design
 specifies a prediction task; it does not establish NCV approximation
 accuracy or automatically select an appropriate dependence radius.
 
-R \>= 4.4 is required. Spatial, temporal-class, phylogenetic, plotting
-and rsample integrations use optional dependencies. See the [package
-site](https://gavinsimpson.github.io/naboer/) for worked workflows and
-the statistical contract.
+R 4.4 or later is required. A standard installation includes `mgcv` for
+model fitting, `clock` for calendar spans and `units` for distances.
+Install `sf` for spatial neighbourhoods, `cubble` for observations
+stored in a cubble, `tsibble` for indexed time series, `ape` for
+phylogenetic neighbourhoods or `rsample` to import or export resamples.
+Diagnostic plots use `ggplot2`. [Package site and worked
+examples](https://gavinsimpson.github.io/naboer/).
 
 # Package index
 
@@ -191,7 +199,7 @@ the statistical contract.
 
 - [Assessment, omission and prediction
   targets](https://gavinsimpson.github.io/naboer/articles/naboer.md):
-- [Multiple time series and
+- [Temporal neighbourhoods and
   forecasting](https://gavinsimpson.github.io/naboer/articles/temporal.md):
 - [Spatial and spatiotemporal
   data](https://gavinsimpson.github.io/naboer/articles/spatial.md):

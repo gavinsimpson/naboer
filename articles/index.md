@@ -4,7 +4,7 @@
 
 - [Assessment, omission and prediction
   targets](https://gavinsimpson.github.io/naboer/articles/naboer.md):
-- [Multiple time series and
+- [Temporal neighbourhoods and
   forecasting](https://gavinsimpson.github.io/naboer/articles/temporal.md):
 - [Spatial and spatiotemporal
   data](https://gavinsimpson.github.io/naboer/articles/spatial.md):

@@ -2,7 +2,8 @@
 
 Elapsed spans use seconds (a day is 86400 seconds); calendar spans use
 local calendar arithmetic. Calendar month and year arithmetic clamps
-invalid dates to the final day of the month. Count spans count ordered
+invalid dates to the final day of the month and preserves the local time
+of day, including fractional seconds. Count spans count ordered
 observations. Numeric time indices are interpreted in seconds. Tsibble
 year-week, year-month and year-quarter indices use the first date of
 each period for elapsed and calendar arithmetic; source index columns
