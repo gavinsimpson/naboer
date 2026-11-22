@@ -163,34 +163,34 @@ model uses all the rows at the chosen smoothness.</p>
 <span>  na.action <span class="op">=</span> <span class="va">na.fail</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>Fit the same model with <code>method = "QNCV"</code> and leave
-<code>nei</code> unset to use mgcv’s default leave-one-out criterion.
-Compare the selected smoothing parameters and the effective degrees of
-freedom, which measure how flexible each fitted surface is. In this
-example the spatial neighbourhoods select a smoother surface, with about
-10 effective degrees of freedom compared with about 14.5 under
-leave-one-out.</p>
+<code>nei</code> unset to use mgcv’s default leave-one-out
+criterion.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">loo_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">weather_formula</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">weather_data</span>, method <span class="op">=</span> <span class="st">"QNCV"</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
-<span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span></span>
+<span><span class="op">)</span></span></code></pre></div>
+<p>Use gratia’s <code><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf()</a></code> to compare the effective degrees of
+freedom of the spatial smooth in each fit. Read the selected smoothing
+parameters from the fitted models’ <code>sp</code> components.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span></span>
 <span>  criterion <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Leave-one-out"</span>, <span class="st">"Spatial neighbourhoods"</span><span class="op">)</span>,</span>
 <span>  smoothing_parameter <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/unname.html" class="external-link">unname</a></span><span class="op">(</span><span class="va">loo_fit</span><span class="op">$</span><span class="va">sp</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/unname.html" class="external-link">unname</a></span><span class="op">(</span><span class="va">spatial_fit</span><span class="op">$</span><span class="va">sp</span><span class="op">)</span><span class="op">)</span>,</span>
-<span>  effective_degrees_of_freedom <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">loo_fit</span><span class="op">)</span><span class="op">$</span><span class="va">s.table</span><span class="op">[</span><span class="fl">1</span>, <span class="st">"edf"</span><span class="op">]</span>,</span>
-<span>    <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">spatial_fit</span><span class="op">)</span><span class="op">$</span><span class="va">s.table</span><span class="op">[</span><span class="fl">1</span>, <span class="st">"edf"</span><span class="op">]</span></span>
-<span>  <span class="op">)</span></span>
+<span>  effective_degrees_of_freedom <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf</a></span><span class="op">(</span><span class="va">loo_fit</span><span class="op">)</span><span class="op">$</span><span class="va">.edf</span>, <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf</a></span><span class="op">(</span><span class="va">spatial_fit</span><span class="op">)</span><span class="op">$</span><span class="va">.edf</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 2 × 3</span></span></span>
 <span><span class="co">#&gt;   criterion              smoothing_parameter effective_degrees_of_freedom</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                                <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span>                        <span style="color: #949494; font-style: italic;">&lt;dbl&gt;</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> Leave-one-out                       0.048<span style="text-decoration: underline;">5</span>                        14.5 </span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> Spatial neighbourhoods              0.210                          9.90</span></span></code></pre></div>
+<p>Here the spatial neighbourhoods select a smoother surface, with about
+10 effective degrees of freedom compared with about 14.5 under
+leave-one-out.</p>
 <p>Use <code>gratia</code> to predict maximum temperature across a grid
 at the median station elevation. Use <code><a href="https://gavinsimpson.github.io/gratia/reference/too_far.html" class="external-link">too_far()</a></code> to mask grid
 points farther than 0.1 from the nearest station after scaling each
 coordinate to the interval from 0 to 1.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">prediction_grid</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/data_slice.html" class="external-link">data_slice</a></span><span class="op">(</span><span class="va">spatial_fit</span>,</span>
 <span>  east_km <span class="op">=</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/evenly.html" class="external-link">evenly</a></span><span class="op">(</span><span class="va">east_km</span>, n <span class="op">=</span> <span class="fl">60</span><span class="op">)</span>,</span>
 <span>  north_km <span class="op">=</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/evenly.html" class="external-link">evenly</a></span><span class="op">(</span><span class="va">north_km</span>, n <span class="op">=</span> <span class="fl">60</span><span class="op">)</span>,</span>
@@ -207,7 +207,7 @@ coordinate to the interval from 0 to 1.</p>
 <p>Map the fitted temperatures with <code>ggplot2</code> and mark the
 weather stations. The contours show locations with the same predicted
 maximum temperature.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">temperature</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="va">east_km</span>, <span class="va">north_km</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_tile.html" class="external-link">geom_raster</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">fitted_tmax</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_contour.html" class="external-link">geom_contour</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>z <span class="op">=</span> <span class="va">fitted_tmax</span><span class="op">)</span>, colour <span class="op">=</span> <span class="st">"white"</span>, alpha <span class="op">=</span> <span class="fl">0.65</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">+</span></span>
@@ -223,11 +223,11 @@ maximum temperature.</p>
 </h2>
 <p>Define a 200-metre window. You can specify the distance before
 supplying any geometry.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">site_window</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/spatial_window.html">spatial_window</a></span><span class="op">(</span><span class="fu"><a href="https://r-quantities.github.io/units/reference/units.html" class="external-link">set_units</a></span><span class="op">(</span><span class="fl">200</span>, <span class="st">"m"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>Create six sites on a straight line in a projected coordinate
 reference system (CRS) with coordinates in metres.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_as_sf.html" class="external-link">st_as_sf</a></span><span class="op">(</span></span>
 <span>  <span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span></span>
 <span>    site <span class="op">=</span> <span class="va">letters</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">6</span><span class="op">]</span>, east <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">100</span>, <span class="fl">500</span>, <span class="fl">1000</span>, <span class="fl">2000</span>, <span class="fl">3000</span><span class="op">)</span>, north <span class="op">=</span> <span class="fl">0</span></span>
@@ -237,13 +237,13 @@ reference system (CRS) with coordinates in metres.</p>
 <p>Use the window to construct folds. Each fold assesses one site and
 omits that site and any others within 200 metres when fitting the
 model.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">site_folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/neighbourhoods.html">neighbourhoods</a></span><span class="op">(</span><span class="va">sites</span>, spatial <span class="op">=</span> <span class="va">site_window</span><span class="op">)</span></span></code></pre></div>
 <p>Compare the first three folds. Sites <code>a</code> and
 <code>b</code> are 100 metres apart, so both are omitted from training
 when either is assessed. Site <code>c</code> is more than 200 metres
 from every other site, so its fold omits only site <code>c</code>.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">site_folds</span>, folds <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 6</span></span></span>
 <span><span class="co">#&gt;   fold  n_assessment n_omission n_analysis n_buffer omitted_fraction</span></span>
@@ -268,13 +268,13 @@ before constructing the folds. <code><a href="../reference/fold_data.html">fold_
 observations in one occupied block at a time. The <code>origin</code>
 fixes the grid to the same anchor if you repeat the analysis on a subset
 of these sites in the same CRS.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">blocks</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/spatial_folds.html">spatial_folds</a></span><span class="op">(</span><span class="va">sites</span>, size <span class="op">=</span> <span class="fu"><a href="https://r-quantities.github.io/units/reference/units.html" class="external-link">set_units</a></span><span class="op">(</span><span class="fl">500</span>, <span class="st">"m"</span><span class="op">)</span>, origin <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>Observations on either side of a block boundary can be close
 together. Add a 100-metre buffer to omit nearby observations from
 training. The <code>n_buffer</code> column counts observations left out
 of training solely because of this buffer.</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">buffered</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/buffer_folds.html">buffer_folds</a></span><span class="op">(</span></span>
 <span>  <span class="va">blocks</span>, spatial <span class="op">=</span> <span class="fu"><a href="../reference/spatial_window.html">spatial_window</a></span><span class="op">(</span><span class="fu"><a href="https://r-quantities.github.io/units/reference/units.html" class="external-link">set_units</a></span><span class="op">(</span><span class="fl">100</span>, <span class="st">"m"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
@@ -320,7 +320,7 @@ the number of cells.</p>
 <p>Suppose each site has one observation per day for ten days. Use
 <code>site</code> as the series key and <code>date</code> as the time
 index.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">observations</span> <span class="op">&lt;-</span> <span class="va">sites</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sites</span><span class="op">)</span><span class="op">)</span>, each <span class="op">=</span> <span class="fl">10</span><span class="op">)</span>, <span class="op">]</span></span>
 <span><span class="va">observations</span><span class="op">$</span><span class="va">date</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">"2024-01-01"</span><span class="op">)</span> <span class="op">+</span> <span class="fl">0</span><span class="op">:</span><span class="fl">9</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">sites</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>Reuse the 200-metre spatial window and add a one-day window on either
@@ -328,7 +328,7 @@ side of the assessment date. With <code>combine = "intersection"</code>,
 a record is omitted from training if it is close in both space and time.
 With <code>combine = "union"</code>, closeness in either dimension is
 sufficient.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">day_window</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/temporal_window.html">temporal_window</a></span><span class="op">(</span><span class="fu"><a href="../reference/time_span.html">time_span</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"days"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">joint</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/neighbourhoods.html">neighbourhoods</a></span><span class="op">(</span></span>
 <span>  <span class="va">observations</span>,</span>
@@ -340,7 +340,7 @@ fifth day at site <code>b</code> and the last day at site
 <code>f</code>. The folds at the nearby sites <code>a</code> and
 <code>b</code> omit records from both sites. The fold at site
 <code>f</code> omits records from that site alone.</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">joint</span>, folds <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">15</span>, <span class="fl">60</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 3 × 6</span></span></span>
 <span><span class="co">#&gt;   fold  n_assessment n_omission n_analysis n_buffer omitted_fraction</span></span>
@@ -367,7 +367,7 @@ stations.</p>
 <p>For spatiotemporal data, use a cubble to keep measurements linked to
 their site locations. Put the measured values in a table with a site and
 date for each record, then link them to the site geometries.</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">values</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://r-spatial.github.io/sf/reference/st_geometry.html" class="external-link">st_drop_geometry</a></span><span class="op">(</span><span class="va">observations</span><span class="op">)</span></span>
 <span><span class="va">values</span><span class="op">$</span><span class="va">value</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">values</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">cube</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://huizezhang-sherry.github.io/cubble/reference/cubble-class.html" class="external-link">make_cubble</a></span><span class="op">(</span></span>
@@ -376,7 +376,7 @@ date for each record, then link them to the site geometries.</p>
 <p><code><a href="../reference/neighbourhoods.html">neighbourhoods()</a></code> reads the key and index from the
 cubble. Apply the same windows as before, then inspect the data in the
 row order used by the folds.</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cube_folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/neighbourhoods.html">neighbourhoods</a></span><span class="op">(</span></span>
 <span>  <span class="va">cube</span>, spatial <span class="op">=</span> <span class="va">site_window</span>, temporal <span class="op">=</span> <span class="va">day_window</span>, combine <span class="op">=</span> <span class="st">"intersection"</span></span>
 <span><span class="op">)</span></span>

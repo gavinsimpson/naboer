@@ -116,24 +116,27 @@ spatial_fit <- gam(weather_formula,
 ```
 
 Fit the same model with `method = "QNCV"` and leave `nei` unset to use
-mgcv’s default leave-one-out criterion. Compare the selected smoothing
-parameters and the effective degrees of freedom, which measure how
-flexible each fitted surface is. In this example the spatial
-neighbourhoods select a smoother surface, with about 10 effective
-degrees of freedom compared with about 14.5 under leave-one-out.
+mgcv’s default leave-one-out criterion.
 
 ``` r
 
 loo_fit <- gam(weather_formula,
   data = weather_data, method = "QNCV", na.action = na.fail
 )
+```
+
+Use gratia’s
+[`edf()`](https://gavinsimpson.github.io/gratia/reference/edf.html) to
+compare the effective degrees of freedom of the spatial smooth in each
+fit. Read the selected smoothing parameters from the fitted models’ `sp`
+components.
+
+``` r
+
 tibble(
   criterion = c("Leave-one-out", "Spatial neighbourhoods"),
   smoothing_parameter = c(unname(loo_fit$sp), unname(spatial_fit$sp)),
-  effective_degrees_of_freedom = c(
-    summary(loo_fit)$s.table[1, "edf"],
-    summary(spatial_fit)$s.table[1, "edf"]
-  )
+  effective_degrees_of_freedom = c(edf(loo_fit)$.edf, edf(spatial_fit)$.edf)
 )
 #> # A tibble: 2 × 3
 #>   criterion              smoothing_parameter effective_degrees_of_freedom
@@ -141,6 +144,10 @@ tibble(
 #> 1 Leave-one-out                       0.0485                        14.5 
 #> 2 Spatial neighbourhoods              0.210                          9.90
 ```
+
+Here the spatial neighbourhoods select a smoother surface, with about 10
+effective degrees of freedom compared with about 14.5 under
+leave-one-out.
 
 Use `gratia` to predict maximum temperature across a grid at the median
 station elevation. Use
