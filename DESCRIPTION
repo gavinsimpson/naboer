@@ -23,6 +23,7 @@ Suggests:
     covr,
     cubble,
     ggplot2,
+    gratia,
     knitr,
     lobstr,
     lwgeom,
@@ -48,7 +49,7 @@ Encoding: UTF-8
 Language: en-GB
 VignetteBuilder: knitr
 Config/testthat/edition: 3
-Config/Needs/website: pkgdown
+Config/Needs/website: pkgdown, gratia
 Config/Needs/coverage: covr
 Config/Needs/development: devtools, roxygen2, styler
 Config/roxygen2/version: 8.1.1
