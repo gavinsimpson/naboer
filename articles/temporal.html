@@ -139,12 +139,13 @@ basis, so the change is in how the smoothing parameter is selected.</p>
 <span><span class="va">soil_ncv</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">vwc</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">day</span>, k <span class="op">=</span> <span class="fl">20</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">soil_data</span>, method <span class="op">=</span> <span class="st">"NCV"</span>, nei <span class="op">=</span> <span class="va">soil_nei</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Compare the effective degrees of freedom (EDF) of the smooth. Higher
-EDF allows the curve to follow more fluctuations in the data.</p>
+<p>Use gratia’s <code><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf()</a></code> to compare the effective degrees of
+freedom (EDF) of the smooth in each fit. Higher EDF allows the curve to
+follow more fluctuations in the data.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  `Leave-one-out` <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">soil_loo</span><span class="op">)</span><span class="op">$</span><span class="va">s.table</span><span class="op">[</span><span class="fl">1</span>, <span class="st">"edf"</span><span class="op">]</span>,</span>
-<span>  `Temporal neighbourhoods` <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">soil_ncv</span><span class="op">)</span><span class="op">$</span><span class="va">s.table</span><span class="op">[</span><span class="fl">1</span>, <span class="st">"edf"</span><span class="op">]</span></span>
+<span>  `Leave-one-out` <span class="op">=</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf</a></span><span class="op">(</span><span class="va">soil_loo</span><span class="op">)</span><span class="op">$</span><span class="va">.edf</span>,</span>
+<span>  `Temporal neighbourhoods` <span class="op">=</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf</a></span><span class="op">(</span><span class="va">soil_ncv</span><span class="op">)</span><span class="op">$</span><span class="va">.edf</span></span>
 <span><span class="op">)</span></span>
 <span><span class="co">#&gt;           Leave-one-out Temporal neighbourhoods </span></span>
 <span><span class="co">#&gt;               17.397113                3.171146</span></span></code></pre></div>
