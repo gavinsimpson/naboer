@@ -6,6 +6,12 @@ library("naboer")
 library("tibble")
 library("mgcv")
 
+have_gratia <- requireNamespace("gratia", quietly = TRUE)
+if (have_gratia) {
+  library("gratia")
+  library("ggplot2")
+}
+
 have_tsibble <- requireNamespace("tsibble", quietly = TRUE)
 if (have_tsibble) {
   library("tsibble")
@@ -94,29 +100,56 @@ c(
 #>               17.397113                3.171146
 ```
 
-Here the neighbourhood fit follows the broader changes in moisture over
-the year. The lines are fitted values from the final models, which both
-use all 365 observations. The two-sided window is for selecting a smooth
-for the observed period. Forecasting has a different information
-cut-off, described later in this article.
+Use gratia’s
+[`add_fitted()`](https://gavinsimpson.github.io/gratia/reference/add_fitted.html)
+to add each model’s fitted moisture values to the observed dates. Both
+final models use all 365 observations.
 
 ``` r
 
-palette <- c("#D55E00", "#0072B2")
-plot(vwc ~ date, soil_data, type = "l", col = "grey60",
-  xlab = "Date in 2019", ylab = "Volumetric water content (%)"
-)
-lines(soil_data$date, fitted(soil_loo), col = palette[1], lwd = 2, lty = 2)
-lines(soil_data$date, fitted(soil_ncv), col = palette[2], lwd = 2)
-legend("bottomright",
-  legend = c("Observed", "Leave-one-out", "Temporal neighbourhoods"),
-  col = c("grey60", palette), lty = c(1, 2, 1), lwd = c(1, 2, 2), bty = "n"
+soil_curves <- rbind(
+  transform(add_fitted(soil_data, soil_loo, value = "fitted_vwc"),
+    scheme = "Leave-one-out"
+  ),
+  transform(add_fitted(soil_data, soil_ncv, value = "fitted_vwc"),
+    scheme = "Temporal neighbourhoods"
+  )
 )
 ```
 
-![Daily soil moisture at Balruddery and two fitted curves. The temporal
-neighbourhood fit is smoother than the leave-one-out
+Overlay the two fitted curves on the observations in grey. The
+neighbourhood fit follows the broader changes in moisture over the year.
+
+``` r
+
+ggplot(soil_data, aes(x = date)) +
+  geom_line(aes(y = vwc), colour = "grey60", linewidth = 0.4) +
+  geom_line(
+    data = soil_curves,
+    aes(y = fitted_vwc, colour = scheme, linetype = scheme),
+    linewidth = 0.9
+  ) +
+  scale_colour_manual(values = c(
+    "Leave-one-out" = "#D55E00", "Temporal neighbourhoods" = "#0072B2"
+  )) +
+  scale_linetype_manual(values = c(
+    "Leave-one-out" = "dashed", "Temporal neighbourhoods" = "solid"
+  )) +
+  labs(
+    x = "Date in 2019", y = "Volumetric water content (%)",
+    colour = NULL, linetype = NULL
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
+
+![Daily soil moisture at Balruddery in grey and two fitted curves. The
+temporal neighbourhood fit is smoother than the leave-one-out
 fit.](temporal_files/figure-html/soil-curves-1.png)
+
+The two-sided window selects a smooth for the observed period.
+Forecasting uses an information cut-off, described later in this
+article.
 
 ## Multiple time series
 

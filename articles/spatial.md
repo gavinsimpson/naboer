@@ -10,12 +10,17 @@ library("units")
 
 have_spatial <- requireNamespace("sf", quietly = TRUE)
 have_cubble <- have_spatial && requireNamespace("cubble", quietly = TRUE)
+have_gratia <- have_cubble && requireNamespace("gratia", quietly = TRUE)
 
 if (have_spatial) {
   library("sf")
 }
 if (have_cubble) {
   library("cubble")
+}
+if (have_gratia) {
+  library("gratia")
+  library("ggplot2")
 }
 ```
 
@@ -137,23 +142,43 @@ tibble(
 #> 2 Spatial neighbourhoods              0.210                          9.90
 ```
 
-Draw the fitted spatial QNCV surface at the median station elevation.
-The contours show predicted maximum temperature in °C, and the dots are
-station locations. `too.far` controls which predictions appear in the
-figure. It masks areas far from any station after scaling each plot axis
-to run from 0 to 1.
+Use `gratia` to predict maximum temperature across a grid at the median
+station elevation. Use
+[`too_far()`](https://gavinsimpson.github.io/gratia/reference/too_far.html)
+to mask grid points farther than 0.1 from the nearest station after
+scaling each coordinate to the interval from 0 to 1.
 
 ``` r
 
-vis.gam(spatial_fit,
-  view = c("east_km", "north_km"),
-  cond = list(elev = median(weather_data$elev)),
-  type = "response", plot.type = "contour", n.grid = 60, too.far = 0.1,
-  contour.col = "grey15",
-  xlab = "Easting (km)", ylab = "Northing (km)",
-  main = "Fitted temperature (°C)"
+prediction_grid <- data_slice(spatial_fit,
+  east_km = evenly(east_km, n = 60),
+  north_km = evenly(north_km, n = 60),
+  elev = median(weather_data$elev)
 )
-points(weather_data$east_km, weather_data$north_km, pch = 20)
+temperature <- add_fitted(prediction_grid, spatial_fit,
+  value = "fitted_tmax", type = "response"
+)
+outside <- too_far(
+  temperature$east_km, temperature$north_km,
+  weather_data$east_km, weather_data$north_km, dist = 0.1
+)
+temperature$fitted_tmax[outside] <- NA_real_
+```
+
+Map the fitted temperatures with `ggplot2` and mark the weather
+stations. The contours show locations with the same predicted maximum
+temperature.
+
+``` r
+
+ggplot(temperature, aes(east_km, north_km)) +
+  geom_raster(aes(fill = fitted_tmax)) +
+  geom_contour(aes(z = fitted_tmax), colour = "white", alpha = 0.65, na.rm = TRUE) +
+  geom_point(data = weather_data, shape = 21, size = 1.6, fill = "white") +
+  scale_fill_viridis_c(na.value = "transparent") +
+  coord_equal() +
+  labs(x = "Easting (km)", y = "Northing (km)", fill = "Fitted maximum\ntemperature (°C)") +
+  theme_minimal()
 ```
 
 ![Contour map of fitted maximum temperatures across southeastern
