@@ -88,13 +88,14 @@ soil_ncv <- gam(vwc ~ s(day, k = 20),
 )
 ```
 
-Compare the effective degrees of freedom (EDF) of the smooth. Higher EDF
-allows the curve to follow more fluctuations in the data.
+Use gratia's `edf()` to compare the effective degrees of freedom (EDF) of the
+smooth in each fit. Higher EDF allows the curve to follow more fluctuations in
+the data.
 
-```{r soil-edf}
+```{r soil-edf, eval=have_gratia}
 c(
-  `Leave-one-out` = summary(soil_loo)$s.table[1, "edf"],
-  `Temporal neighbourhoods` = summary(soil_ncv)$s.table[1, "edf"]
+  `Leave-one-out` = edf(soil_loo)$.edf,
+  `Temporal neighbourhoods` = edf(soil_ncv)$.edf
 )
 ```
 
