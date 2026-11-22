@@ -287,17 +287,17 @@ correlation outside each neighbourhood. Reciprocity means that whenever
 row <code>j</code> is in row <code>i</code>’s neighbourhood, row
 <code>i</code> is also in row <code>j</code>’s. Asymmetric windows can
 still define a cross-validation score.</p>
-<p>For mgcv through the tested 1.9-6 development version,
-<code><a href="../reference/as_nei.html">as_nei()</a></code> puts folds in data row order when each observation
-has exactly one fold assessing it alone. It also translates any explicit
-sample numbers to that order. On these versions, requesting the raw
-jackknife covariance with <code>jackknife = TRUE</code> requires that
-same assessment layout.</p>
-<p>In mgcv 1.9-5 and the tested 1.9-6 development version, the default
-dependence-adjusted covariance in <code>gam()</code> can count a model
-offset twice. Use <code>as_nei(folds, jackknife = FALSE)</code> if
-standard Bayesian covariance is appropriate for your model. For discrete
-<code>bam()</code> on these versions, check that prediction standard
+<p>On affected mgcv releases, <code><a href="../reference/as_nei.html">as_nei()</a></code> puts folds in data
+row order for covariance calculations when each observation has exactly
+one fold assessing it alone. It also translates any explicit sample
+numbers to that order. On those releases, requesting raw jackknife
+covariance with <code>jackknife = TRUE</code> requires this assessment
+layout.</p>
+<p>In mgcv 1.9-5, the default dependence-adjusted covariance in
+<code>gam()</code> can count a model offset twice. Use
+<code>as_nei(folds, jackknife = FALSE)</code> if standard Bayesian
+covariance is appropriate for your model. For discrete
+<code>bam()</code> in that release, check that prediction standard
 errors are finite and that the covariance matrix has no substantially
 negative eigenvalues. A sample of one fold can also trigger a warning
 about taking a maximum over an empty set.</p>

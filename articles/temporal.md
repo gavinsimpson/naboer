@@ -27,19 +27,18 @@ held-out day, which can favour a smooth that follows short-term
 fluctuations. We will compare that fit with one that also leaves out
 nearby days during smoothness selection.
 
-Read the 365 daily measurements from the COSMOS-UK monitoring network.
-The `date` column defines the neighbourhoods. The number of days since 1
-January is the predictor in the model, and `vwc` is the volumetric water
-content as a percentage. Contains data supplied by UK Centre for Ecology
-& Hydrology. [COSMOS-UK data and
+Load the 365 daily measurements from the COSMOS-UK monitoring network
+with [`data()`](https://rdrr.io/r/utils/data.html). The `date` column
+defines the neighbourhoods. The number of days since 1 January is the
+predictor in the model, and `vwc` is the volumetric water content as a
+percentage. Contains data supplied by UK Centre for Ecology & Hydrology.
+[COSMOS-UK data and
 licence](https://doi.org/10.5285/dde10e2b-ee1a-4b2b-a247-176db2f7bb31).
 
 ``` r
 
-soil <- read.csv(
-  system.file("extdata", "balruddery-2019.csv", package = "naboer", mustWork = TRUE)
-)
-soil$date <- as.Date(soil$date)
+data("balruddery_2019", package = "naboer")
+soil <- balruddery_2019
 soil$day <- as.numeric(soil$date - min(soil$date))
 ```
 

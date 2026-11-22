@@ -187,6 +187,11 @@ examples](https://gavinsimpson.github.io/naboer/).
   [`from_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md)
   : Convert between naboer folds and rsample resamples
 
+## Data
+
+- [`balruddery_2019`](https://gavinsimpson.github.io/naboer/reference/balruddery_2019.md)
+  : Daily soil moisture at Balruddery in 2019
+
 ## Package
 
 - [`naboer`](https://gavinsimpson.github.io/naboer/reference/naboer-package.md)

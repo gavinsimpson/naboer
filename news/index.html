@@ -55,7 +55,7 @@
 </ul></div>
 <div class="section level3">
 <h3 id="bug-fixes-0-1-0">Bug fixes<a class="anchor" aria-label="anchor" href="#bug-fixes-0-1-0"></a></h3>
-<ul><li>Export complete focal designs in observation order for covariance in mgcv through 1.9-6. Preserve which folds are sampled and omit the sampling field when all folds are selected. Reject explicit jackknife covariance for unsupported assessment layouts on affected versions.</li>
+<ul><li>On affected mgcv releases, export complete focal designs in observation order for covariance calculations. Preserve which folds are sampled and omit the sampling field when all folds are selected. Reject explicit jackknife covariance for unsupported assessment layouts on those releases.</li>
 <li>Preserve geometry type and coordinate precision when reusing spatial neighbourhoods. Fold plots use the active geometry column.</li>
 <li>Keep cubble source row identifiers aligned when temporal conversion sorts observations, so rsample import rejects splits indexed in a different order.</li>
 <li>Preserve time of day and fractional seconds under calendar shifts. Use the initial span’s daylight-saving rules for the first forecast origin and include elapsed-window boundaries consistently in both directions.</li>

@@ -197,21 +197,21 @@ correlation outside each neighbourhood. Reciprocity means that whenever
 row `j` is in row `i`’s neighbourhood, row `i` is also in row `j`’s.
 Asymmetric windows can still define a cross-validation score.
 
-For mgcv through the tested 1.9-6 development version,
+On affected mgcv releases,
 [`as_nei()`](https://gavinsimpson.github.io/naboer/reference/as_nei.md)
-puts folds in data row order when each observation has exactly one fold
-assessing it alone. It also translates any explicit sample numbers to
-that order. On these versions, requesting the raw jackknife covariance
-with `jackknife = TRUE` requires that same assessment layout.
+puts folds in data row order for covariance calculations when each
+observation has exactly one fold assessing it alone. It also translates
+any explicit sample numbers to that order. On those releases, requesting
+raw jackknife covariance with `jackknife = TRUE` requires this
+assessment layout.
 
-In mgcv 1.9-5 and the tested 1.9-6 development version, the default
-dependence-adjusted covariance in `gam()` can count a model offset
-twice. Use `as_nei(folds, jackknife = FALSE)` if standard Bayesian
-covariance is appropriate for your model. For discrete `bam()` on these
-versions, check that prediction standard errors are finite and that the
-covariance matrix has no substantially negative eigenvalues. A sample of
-one fold can also trigger a warning about taking a maximum over an empty
-set.
+In mgcv 1.9-5, the default dependence-adjusted covariance in `gam()` can
+count a model offset twice. Use `as_nei(folds, jackknife = FALSE)` if
+standard Bayesian covariance is appropriate for your model. For discrete
+`bam()` in that release, check that prediction standard errors are
+finite and that the covariance matrix has no substantially negative
+eigenvalues. A sample of one fold can also trigger a warning about
+taking a maximum over an empty set.
 
 `bam()` applies NCV to a penalised linear approximation of the model. An
 exact non-Gaussian refit uses the full loss function. The implementation

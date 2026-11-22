@@ -96,17 +96,16 @@ often similar. A leave-one-out fit can use neighbouring days to predict
 a held-out day, which can favour a smooth that follows short-term
 fluctuations. We will compare that fit with one that also leaves out
 nearby days during smoothness selection.</p>
-<p>Read the 365 daily measurements from the COSMOS-UK monitoring
-network. The <code>date</code> column defines the neighbourhoods. The
-number of days since 1 January is the predictor in the model, and
-<code>vwc</code> is the volumetric water content as a percentage.
-Contains data supplied by UK Centre for Ecology &amp; Hydrology. <a href="https://doi.org/10.5285/dde10e2b-ee1a-4b2b-a247-176db2f7bb31" class="external-link">COSMOS-UK
+<p>Load the 365 daily measurements from the COSMOS-UK monitoring network
+with <code><a href="https://rdrr.io/r/utils/data.html" class="external-link">data()</a></code>. The <code>date</code> column defines the
+neighbourhoods. The number of days since 1 January is the predictor in
+the model, and <code>vwc</code> is the volumetric water content as a
+percentage. Contains data supplied by UK Centre for Ecology &amp;
+Hydrology. <a href="https://doi.org/10.5285/dde10e2b-ee1a-4b2b-a247-176db2f7bb31" class="external-link">COSMOS-UK
 data and licence</a>.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">soil</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.csv</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"balruddery-2019.csv"</span>, package <span class="op">=</span> <span class="st">"naboer"</span>, mustWork <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="op">)</span></span>
-<span><span class="va">soil</span><span class="op">$</span><span class="va">date</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="va">soil</span><span class="op">$</span><span class="va">date</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/data.html" class="external-link">data</a></span><span class="op">(</span><span class="st">"balruddery_2019"</span>, package <span class="op">=</span> <span class="st">"naboer"</span><span class="op">)</span></span>
+<span><span class="va">soil</span> <span class="op">&lt;-</span> <span class="va">balruddery_2019</span></span>
 <span><span class="va">soil</span><span class="op">$</span><span class="va">day</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">soil</span><span class="op">$</span><span class="va">date</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">soil</span><span class="op">$</span><span class="va">date</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>Make one fold per day. In each fold, leave out the target day and up
 to 20 days on either side, and score the prediction for the target day

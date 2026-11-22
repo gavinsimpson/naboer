@@ -33,8 +33,9 @@ as_nei(
 - jackknife:
 
   Optional logical gam covariance setting. `NULL` preserves mgcv's
-  default by omitting the field. With mgcv through 1.9-6, `TRUE`
-  requires exactly one singleton assessment fold per observation.
+  default by omitting the field. On versions that require focal folds in
+  observation order, `TRUE` requires exactly one singleton assessment
+  fold per observation.
 
 - max_bytes:
 
@@ -52,11 +53,11 @@ A plain list with `a`, `ma`, `d`, `md`, and optional settings.
 
 ## Details
 
-For mgcv through 1.9-6, designs with one singleton assessment fold per
-observation are packed in observation order for covariance calculations.
-Explicit sample indices are translated from input fold numbers to packed
-fold numbers. A sample containing every fold is exported without a
-sampling field.
+For compatibility with covariance calculations in affected versions of
+mgcv, designs with one singleton assessment fold per observation are
+packed in observation order. Explicit sample indices are translated from
+input fold numbers to packed fold numbers. On these versions, a sample
+containing every fold is exported without a sampling field.
 
 For nonsingleton omissions, sampling by count requires mgcv 1.9-5 or
 later because 1.9-4 samples packed endpoints instead of fold numbers.

@@ -82,8 +82,9 @@ vector of input fold numbers. A length-one value always means a count.</p></dd>
 
 <dt id="arg-jackknife">jackknife<a class="anchor" aria-label="anchor" href="#arg-jackknife"></a></dt>
 <dd><p>Optional logical gam covariance setting. <code>NULL</code> preserves
-mgcv's default by omitting the field. With mgcv through 1.9-6, <code>TRUE</code>
-requires exactly one singleton assessment fold per observation.</p></dd>
+mgcv's default by omitting the field. On versions that require focal folds
+in observation order, <code>TRUE</code> requires exactly one singleton assessment fold
+per observation.</p></dd>
 
 
 <dt id="arg-max-bytes">max_bytes<a class="anchor" aria-label="anchor" href="#arg-max-bytes"></a></dt>
@@ -102,10 +103,11 @@ canonical data, or data containing the original unique identifier column.</p></d
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>For mgcv through 1.9-6, designs with one singleton assessment fold per
-observation are packed in observation order for covariance calculations.
-Explicit sample indices are translated from input fold numbers to packed fold
-numbers. A sample containing every fold is exported without a sampling field.</p>
+    <p>For compatibility with covariance calculations in affected versions of mgcv,
+designs with one singleton assessment fold per observation are packed in
+observation order. Explicit sample indices are translated from input fold
+numbers to packed fold numbers. On these versions, a sample containing every
+fold is exported without a sampling field.</p>
 <p>For nonsingleton omissions, sampling by count requires mgcv 1.9-5 or later
 because 1.9-4 samples packed endpoints instead of fold numbers. With 1.9-4,
 use at least two explicit fold numbers or use all folds.</p>
