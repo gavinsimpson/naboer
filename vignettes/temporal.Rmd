@@ -15,6 +15,7 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 library("naboer")
 library("tibble")
 library("mgcv")
+library("datasets")
 
 have_gratia <- requireNamespace("gratia", quietly = TRUE)
 if (have_gratia) {
@@ -295,11 +296,68 @@ as above.
 
 ### Refit models at forecast origins
 
-When refitting at each origin, construct predictors and estimate missing
-values using only information available at that time. Forecast folds often
-leave out many observations. If you use neighbourhood cross-validation
-(NCV) instead of explicit refitting, compare the approximation with exact
-refits for your model and forecast folds. See the
+Use the `nottem` series to forecast monthly mean air temperatures at Nottingham
+Castle. The record covers 1920 to 1939 and reports temperatures in degrees
+Fahrenheit. Date each observation at the end of its month.
+[R documentation for `nottem`](https://stat.ethz.ch/R-manual/R-devel/library/datasets/html/nottem.html).
+
+```{r nottingham-data}
+nottingham <- tibble(
+  date = seq(as.Date("1920-02-01"), by = "month", length.out = length(nottem)) - 1,
+  month = as.integer(cycle(nottem)),
+  temperature = as.numeric(nottem)
+)
+```
+
+Set forecast origins at the end of 1929, 1931 and 1933. Each fold trains on
+observations through December of that year and assesses all 12 months of
+the following year. Get the row numbers for fitting and scoring each model.
+
+```{r nottingham-folds}
+cutoffs <- as.Date(c("1929-12-31", "1931-12-31", "1933-12-31"))
+nottingham_folds <- forecast_folds(nottingham,
+  index = date, origins = cutoffs,
+  horizon = time_span(1, "years", type = "calendar")
+)
+nottingham_data <- fold_data(nottingham_folds)
+training_rows <- analysis_indices(nottingham_folds)
+assessment_rows <- assessment_indices(nottingham_folds)
+```
+
+Fit a seasonal GAM using only the training rows. The month of the year is known
+in advance, so the model needs no temperature records beyond the cut-off to
+make its forecasts. A cyclic smooth connects December to January, with knots
+at 0.5 and 12.5 defining the ends of the annual cycle. Score each set of
+forecasts with root mean squared error (RMSE).
+
+```{r forecast-rmse-function}
+forecast_rmse <- function(training, assessment) {
+  fit <- gam(temperature ~ s(month, bs = "cc", k = 8),
+    data = training, method = "REML", knots = list(month = c(0.5, 12.5))
+  )
+  predicted <- predict(fit, newdata = assessment["month"])
+  sqrt(mean((assessment$temperature - predicted)^2))
+}
+```
+
+Refit the GAM separately for each forecast origin. Each row of the result
+summarises forecast errors, in degrees Fahrenheit, over the following year.
+
+```{r nottingham-scores}
+rmse <- vapply(seq_along(training_rows), function(i) {
+  forecast_rmse(
+    nottingham_data[training_rows[[i]], ],
+    nottingham_data[assessment_rows[[i]], ]
+  )
+}, numeric(1))
+tibble(origin = cutoffs, rmse_f = rmse)
+```
+
+When forecasting with other predictors, use only information available at the
+origin to construct them or to fill in missing values. Forecast folds often
+leave out many observations. If you use neighbourhood cross-validation (NCV)
+in place of explicit refitting, compare its approximation with exact refits
+for your model and forecast folds. See the
 [comparison with exact refits](naboer.html#check-the-approximation-for-large-omissions).
 
 ## Use a tsibble

@@ -14,10 +14,18 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 ```{r packages, message=FALSE}
 library("naboer")
 library("tibble")
+library("mgcv")
+library("datasets")
 
+have_gratia <- requireNamespace("gratia", quietly = TRUE) &&
+  requireNamespace("ggplot2", quietly = TRUE)
 have_ape <- requireNamespace("ape", quietly = TRUE)
 have_rsample <- requireNamespace("rsample", quietly = TRUE)
 
+if (have_gratia) {
+  library("gratia")
+  library("ggplot2")
+}
 if (have_ape) {
   library("ape")
 }
@@ -34,9 +42,89 @@ aim is to assess a particular observation while allowing for dependence among
 nearby observations, use a buffer around it. The buffer excludes observations
 from fitting while leaving the set of observations you score unchanged.
 
-Start with a monitoring dataset of six stations across two networks. Each
-station has four daily observations and its own temperature and moisture
-measurements, which are constant across the four days in this example.
+## Predict carbon dioxide uptake for a new plant
+
+The `CO2` dataset supplied with R contains measurements from a cold
+tolerance experiment on barnyard grass (*Echinochloa crus-galli*). The
+researchers measured how much carbon dioxide each of 12 plants took up at
+seven ambient concentrations. The plants came from Quebec and Mississippi,
+and half of those from each location were chilled overnight before the
+experiment. [Potvin, Lechowicz and Tardif (1990)](https://doi.org/10.2307/1938276).
+
+Combine origin (`Type`) and `Treatment` into one factor so the model can
+fit a separate response curve for each combination.
+
+```{r grass-data}
+grass <- transform(as.data.frame(CO2),
+  condition = interaction(Type, Treatment)
+)
+```
+
+We want to predict uptake for a new plant from one of these four
+combinations. If we held out one measurement at a time, other measurements
+from the same plant could help predict the one we held out. Group by
+`Plant` so all seven measurements from a plant are left out and scored
+together. Inspect the first of the 12 folds.
+
+```{r grass-folds}
+plant_folds <- group_folds(grass, group = Plant)
+as_tibble(plant_folds, folds = 1)
+```
+
+Fit a smooth of ambient concentration (`conc`) for each combination of
+origin and treatment. The separate `condition` term also lets the mean
+uptake differ between combinations. Export the plant folds with `as_nei()`
+and pass them to `gam()` so that QNCV chooses the smoothness using
+approximate predictions for each held-out plant. The resulting model uses
+all 12 plants.
+
+```{r grass-fit}
+plant_data <- fold_data(plant_folds)
+plant_nei <- as_nei(plant_folds, data = plant_data)
+plant_fit <- gam(uptake ~ condition + s(conc, by = condition, k = 5),
+  data = plant_data, method = "QNCV", nei = plant_nei, na.action = na.fail
+)
+```
+
+Use gratia's `add_fitted()` to evaluate the fitted curves across the
+observed range of concentrations for each origin and treatment.
+
+```{r grass-curve-data, eval=have_gratia}
+plant_grid <- expand.grid(
+  conc = seq(min(plant_data$conc), max(plant_data$conc), length.out = 100),
+  Type = levels(plant_data$Type),
+  Treatment = levels(plant_data$Treatment)
+)
+plant_grid$condition <- with(plant_grid, interaction(Type, Treatment))
+plant_curves <- add_fitted(plant_grid, plant_fit, value = "fitted_uptake")
+```
+
+Plot the mean predicted uptake for a new plant alongside the original
+measurements. The curves for chilled plants are lower at both origins,
+especially for plants from Mississippi.
+
+```{r grass-curves, eval=have_gratia, fig.width=7, fig.height=4, dev.args=list(bg="white"), fig.alt="Carbon dioxide uptake curves and observed measurements for Quebec and Mississippi grasses. The fitted curves are lower for chilled plants, especially those from Mississippi."}
+ggplot(plant_data, aes(x = conc, colour = Treatment)) +
+  geom_point(aes(y = uptake), alpha = 0.55) +
+  geom_line(data = plant_curves, aes(y = fitted_uptake), linewidth = 0.9) +
+  facet_wrap(vars(Type)) +
+  scale_colour_manual(
+    values = c(nonchilled = "#0072B2", chilled = "#D55E00"),
+    labels = c(nonchilled = "Non-chilled", chilled = "Chilled")
+  ) +
+  labs(
+    x = "Ambient carbon dioxide concentration (µL/L)",
+    y = "Carbon dioxide uptake (µmol/m²/s)"
+  ) +
+  theme_minimal()
+```
+
+## Whole stations and hierarchical groups
+
+The remaining examples use small invented datasets to show how the folds
+are constructed. In this monitoring example, six stations belong to two
+networks. Each station has four daily observations and its own temperature
+and moisture measurements, which are constant across the four days.
 
 ```{r monitoring-data}
 observations <- tibble(
@@ -51,8 +139,6 @@ observations <- tibble(
   )
 )
 ```
-
-## Whole stations and hierarchical groups
 
 Use `group_folds()` to leave out one station at a time. Selecting both
 `network` and `station` makes the pair the group identifier. This also works
