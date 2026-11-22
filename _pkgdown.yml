@@ -35,6 +35,9 @@ reference:
       - validate_folds
       - validate_nei
       - as_rset
+  - title: Data
+    contents:
+      - balruddery_2019
   - title: Package
     contents: naboer-package
 articles:
