@@ -168,19 +168,17 @@ test_that("mgcv compatibility checks reject single folds and gate scalar samplin
     class = "naboer_error_compatibility"
   )
   buffered <- custom_folds(data, list(2L, 5L, 7L), list(1:3, 4:6, 6:8))
-  version <- NULL
+  version <- package_version("1.9-4")
   testthat::local_mocked_bindings(nei_mgcv_version = function() version)
   packed <- as_nei(buffered)
   packed$sample <- 2L
-  for (version in list(NULL, package_version("1.9-4"))) {
-    expect_error(as_nei(buffered, sample = 2), "requires mgcv 1.9-5",
-      class = "naboer_error_compatibility"
-    )
-    expect_error(validate_nei(packed, 8), "explicit fold numbers",
-      class = "naboer_error_compatibility"
-    )
-    expect_null(as_nei(buffered, sample = 3)$sample)
-  }
+  expect_error(as_nei(buffered, sample = 2), "requires mgcv 1.9-5",
+    class = "naboer_error_compatibility"
+  )
+  expect_error(validate_nei(packed, 8), "explicit fold numbers",
+    class = "naboer_error_compatibility"
+  )
+  expect_null(as_nei(buffered, sample = 3)$sample)
   version <- package_version("1.9-5")
   expect_identical(as_nei(buffered, sample = 2), packed)
   expect_invisible(validate_nei(packed, 8))

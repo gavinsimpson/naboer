@@ -25,6 +25,8 @@
 ## User visible changes
 
 * The minimum supported R version is now 4.4.0.
+* A default installation now includes mgcv for NCV integration, clock for
+  calendar windows, blocks and forecasts, and units for distance specifications.
 
 ## Bug fixes
 

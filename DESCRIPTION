@@ -9,30 +9,30 @@ Maintainer: Gavin L. Simpson <ucfagls@gmail.com>
 Depends:
     R (>= 4.4.0)
 Imports:
+    clock,
     dplyr (>= 1.2.0),
+    mgcv (>= 1.9-4),
     rlang (>= 1.1.0),
     tibble,
     tidyselect,
+    units,
     vctrs
 Suggests:
     ape,
     bench,
-    clock,
     covr,
     cubble,
     ggplot2,
     knitr,
     lobstr,
     lwgeom,
-    mgcv (>= 1.9-4),
     pkgdown,
     profmem,
     rmarkdown,
     rsample,
     sf,
     testthat (>= 3.2.0),
-    tsibble,
-    units
+    tsibble
 Description: Construct and inspect dependence-aware cross-validation designs
     for spatial, temporal, spatiotemporal, hierarchical, environmental and
     phylogenetic data. Compact neighbourhood representations distinguish
@@ -40,6 +40,7 @@ Description: Construct and inspect dependence-aware cross-validation designs
     the structures used by 'mgcv' for neighbourhood cross-validation smoothness
     selection. Optional adapters support 'sf', 'tsibble', 'cubble' and 'rsample'.
 License: MIT + file LICENSE
+Copyright: See file COPYRIGHTS for the copyright and licence of the example data.
 URL: https://gavinsimpson.github.io/naboer/
 BugReports: https://github.com/gavinsimpson/naboer/issues
 Roxygen: list(markdown = TRUE)

@@ -1,13 +1,19 @@
 # These tests require only package Imports and testthat. Dependency checks are
 # evaluated with the real helper body and a local namespace-availability shim;
 # this avoids changing installed packages or global base namespace bindings.
-test_that("core folds and temporal elapsed workflows need no specialist packages", {
+test_that("core folds and calendar workflows run without optional packages", {
   data <- tibble::tibble(time = 1:8, y = c(1, 3, 2, 4, 5, 7, 6, 8))
   expect_equal(as_nei(loo_folds(data))$a, 1:8)
   f <- neighbourhoods(data, temporal = temporal_window(time_span(1)), index = time)
   expect_equal(omission_indices(f, 4)[[1]], 3:5)
   expect_equal(fold_data(f), data)
   expect_s3_class(tibble::as_tibble(f), "tbl_df")
+
+  monthly <- tibble::tibble(date = seq(as.Date("2024-01-01"), by = "month", length.out = 4))
+  calendar <- neighbourhoods(monthly,
+    index = date, temporal = temporal_window(time_span(1, "months", "calendar"))
+  )
+  expect_equal(omission_indices(calendar, 2)[[1]], 1:3)
 })
 
 test_that("absent optional dependencies produce install guidance", {
@@ -17,18 +23,10 @@ test_that("absent optional dependencies produce install guidance", {
   environment(dependency_check) <- dependency_environment
   testthat::local_mocked_bindings(need_package = dependency_check)
   data <- tibble::tibble(time = 1:4)
-  expect_error(spatial_window(1), "Install.*units", class = "naboer_error_dependency")
-  window <- structure(list(radius = 1), class = "naboer_spatial_window")
+  window <- spatial_window(units::set_units(1, "km"))
+  expect_s3_class(window, "naboer_spatial_window")
   expect_error(neighbourhoods(data, spatial = window), "Install.*sf", class = "naboer_error_dependency")
   expect_error(phylogenetic_window(NULL, taxon, 1), "Install.*ape", class = "naboer_error_dependency")
-  expect_error(
-    temporal_folds(tibble::tibble(date = as.Date("2024-01-01") + 0:3),
-      time_span(1, "months", "calendar"),
-      index = date
-    ),
-    "Install.*clock",
-    class = "naboer_error_dependency"
-  )
   expect_error(as_rset(loo_folds(data)), "Install.*rsample", class = "naboer_error_dependency")
   expect_error(autoplot.naboer_folds(loo_folds(data)), "Install.*ggplot2", class = "naboer_error_dependency")
   fake_tsibble <- data

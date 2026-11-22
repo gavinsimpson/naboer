@@ -1,0 +1,16 @@
+Example data in extdata/balruddery-2019.csv
+
+Contains data supplied by UK Centre for Ecology & Hydrology.
+
+Stanley et al. (2026), Daily and sub-daily hydrometeorological and soil
+moisture data (2013-2025) [COSMOS-UK]. NERC EDS Environmental Information
+Data Centre. https://doi.org/10.5285/dde10e2b-ee1a-4b2b-a247-176db2f7bb31
+
+Licence: Open Government Licence v3. https://eidc.ac.uk/licences/ogl/plain
+
+The extract contains all 365 records for the Balruddery station (BALRD) in
+2019. The DATE_TIME and COSMOS_VWC columns were renamed date and vwc. The
+water content values, expressed as percentages, are unchanged.
+
+Source CSV retrieved on 22 November 2026:
+https://catalogue.ceh.ac.uk/datastore/eidchub/dde10e2b-ee1a-4b2b-a247-176db2f7bb31/cosmos-uk_balrd_hydrosoil_daily_2014-2025.csv

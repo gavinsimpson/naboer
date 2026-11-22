@@ -159,7 +159,6 @@ temporal_shift <- function(x, span, multiplier = 1) {
   if (!any(changed)) {
     return(x)
   }
-  need_package("clock")
   args <- list(x = x[changed], n = n[changed])
   if (span$unit %in% c("months", "years")) args$invalid <- "previous-day"
   fraction <- NULL

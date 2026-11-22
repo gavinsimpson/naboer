@@ -10,19 +10,16 @@
 #' observation are packed in observation order for covariance calculations.
 #' Explicit sample indices are translated from input fold numbers to packed fold
 #' numbers. A sample containing every fold is exported without a sampling field.
-#' The same precautions apply when mgcv is unavailable.
 #'
 #' For nonsingleton omissions, sampling by count requires mgcv 1.9-5 or later
-#' because 1.9-4 samples packed endpoints instead of fold numbers. With 1.9-4
-#' or when mgcv is unavailable, use at least two explicit fold numbers or use
-#' all folds.
+#' because 1.9-4 samples packed endpoints instead of fold numbers. With 1.9-4,
+#' use at least two explicit fold numbers or use all folds.
 #' @param x A `naboer_folds` object.
 #' @param sample Optional bam sampling specification: one positive count, or a
 #'   vector of input fold numbers. A length-one value always means a count.
 #' @param jackknife Optional logical gam covariance setting. `NULL` preserves
-#'   mgcv's default by omitting the field. With mgcv through 1.9-6 or when mgcv
-#'   is unavailable, `TRUE` requires exactly one singleton assessment fold per
-#'   observation.
+#'   mgcv's default by omitting the field. With mgcv through 1.9-6, `TRUE`
+#'   requires exactly one singleton assessment fold per observation.
 #' @param max_bytes Maximum estimated packed output size in bytes; defaults to
 #'   option `naboer.max_bytes`, or 1 GiB. Use `Inf` to disable the memory guard.
 #' @param data Optional data used for alignment checking. Supply unchanged
@@ -143,7 +140,7 @@ check_nei_fold_count <- function(n) {
 }
 
 check_nei_scalar_sample <- function(sample, omission_sizes, version) {
-  if (length(sample) == 1L && (is.null(version) || version < "1.9-5") &&
+  if (length(sample) == 1L && version < "1.9-5" &&
     any(omission_sizes != 1)) {
     abort_naboer(paste0(
       "Scalar `sample` for nonsingleton omissions requires mgcv 1.9-5 or later. ",
@@ -153,11 +150,11 @@ check_nei_scalar_sample <- function(sample, omission_sizes, version) {
 }
 
 nei_mgcv_version <- function() {
-  tryCatch(utils::packageVersion("mgcv"), packageNotFoundError = function(e) NULL)
+  package_version(getNamespaceVersion(loadNamespace("mgcv")))
 }
 
 nei_needs_covariance_workaround <- function(version) {
-  is.null(version) || version <= "1.9-6"
+  version <= "1.9-6"
 }
 
 nei_complete_focal <- function(d, md, n) {

@@ -9,7 +9,6 @@
 #' @return A spatial window specification.
 #' @export
 spatial_window <- function(radius) {
-  need_package("units")
   if (!inherits(radius, "units") || length(radius) != 1L ||
     !is.finite(as.numeric(radius)) || as.numeric(radius) < 0) {
     abort_naboer("`radius` must be one finite, nonnegative distance with units.")

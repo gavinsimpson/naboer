@@ -9,116 +9,306 @@ vignette: >
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
-library("naboer")
-available <- requireNamespace("sf", quietly = TRUE) &&
-  requireNamespace("units", quietly = TRUE)
 ```
 
-Use `sf` geometry columns and physical distance units. Projected queries use
-indexed candidates with exact geometry-to-geometry distance checks. Geographic
-queries respect the current sf spherical/ellipsoidal engine. Constructors never
-change `sf_use_s2()`, repair invalid geometry or assume a missing CRS.
+```{r packages, message=FALSE}
+library("naboer")
+library("dplyr")
+library("tibble")
+library("mgcv")
+library("units")
 
-Radius thresholds and block assignments use the stored coordinates. An `sf`
-precision attribute is retained in `fold_data()` but does not implicitly round
-coordinates during construction. Round the coordinates explicitly beforehand if
-the intended design uses rounded locations. This also keeps indexed candidates
-consistent with exact geometry distances.
+have_spatial <- requireNamespace("sf", quietly = TRUE)
+have_cubble <- have_spatial && requireNamespace("cubble", quietly = TRUE)
 
-```{r spatial, eval=available}
-sites <- sf::st_as_sf(
-  tibble::tibble(site = letters[1:6], east = c(0, 100, 500, 1000, 2000, 3000), north = 0),
+if (have_spatial) {
+  library("sf")
+}
+if (have_cubble) {
+  library("cubble")
+}
+```
+
+Use a distance window to assess observations individually while leaving nearby
+observations out of the training data. Use spatial blocks to assess all
+observations in an area together. You can also add a distance buffer around the
+observations in each assessment block.
+
+Install `sf` to work with station geometries. A standard naboer installation
+includes `units` to specify distances. For raster data, take the locations and
+values of the cells used for modelling and represent those locations as `sf`
+points with the raster's coordinate reference system. If you already have fold
+memberships, supply their row numbers with `custom_folds()`.
+
+## Choose smoothness for spatial data
+
+Suppose you want to map daily maximum temperature where weather stations are
+sparse. When choosing how smooth the map should be, you can score the prediction
+at each station after leaving out that station and nearby stations. Here we use
+records from Victoria and New South Wales, Australia, on 15 January 2018. The
+data come from the Global Historical Climatology Network Daily. Install
+`cubble` to use its copy of the data and run this example. [Data documentation](https://huizezhang-sherry.github.io/cubble/reference/climate-data.html),
+[cubble paper](https://www.jstatsoft.org/article/view/v110i07).
+
+Use `dplyr` to keep one row per station and retain stations with both
+temperature and elevation recorded.
+
+```{r weather-stations, eval=have_cubble}
+weather <- historical_tmax |>
+  face_temporal() |>
+  filter(date == as.Date("2018-01-15")) |>
+  unfold(long, lat, elev) |>
+  as_tibble() |>
+  filter(is.finite(tmax), is.finite(elev))
+```
+
+Project station locations onto the Australian Albers grid (EPSG:3577) so we can
+use distances in a common coordinate system. Save easting and northing in
+kilometres as predictors for the model.
+
+```{r project-stations, eval=have_cubble}
+weather_points <- st_as_sf(weather, coords = c("long", "lat"), crs = 4326) |>
+  st_transform(3577)
+coordinates <- st_coordinates(weather_points) / 1000
+weather_points$east_km <- coordinates[, "X"]
+weather_points$north_km <- coordinates[, "Y"]
+```
+
+Make one fold per station. Each fold scores the target station and leaves that
+station and all stations within 100 km out of the training data. The radius
+illustrates a prediction task with few nearby stations. For your own analysis,
+choose the distance to reflect where you expect to make predictions or how far
+residual dependence extends.
+
+```{r weather-neighbourhoods, eval=have_cubble}
+weather_folds <- neighbourhoods(weather_points,
+  spatial = spatial_window(set_units(100, "km"))
+)
+range(lengths(omission_indices(weather_folds)))
+```
+
+Fit temperature as a function of elevation and a smooth surface over easting
+and northing. `as_nei()` supplies the omitted and scored rows to mgcv's `gam()`
+for quadratic neighbourhood cross-validation (QNCV). The Gaussian model here
+has quadratic loss, so QNCV gives the same smoothing criterion as neighbourhood
+cross-validation (NCV). Use `fold_data()` so the model data have the row order
+expected by the exported indices. The folds determine how `gam()` chooses the
+smoothing parameter. The returned model uses all the rows at the chosen
+smoothness.
+
+```{r spatial-ncv-fit, eval=have_cubble}
+weather_data <- fold_data(weather_folds)
+weather_formula <- tmax ~ elev + s(east_km, north_km, k = 20)
+spatial_fit <- gam(weather_formula,
+  data = weather_data, method = "QNCV",
+  nei = as_nei(weather_folds, data = weather_data),
+  na.action = na.fail
+)
+```
+
+Fit the same model with `method = "QNCV"` and leave `nei` unset to use mgcv's
+default leave-one-out criterion. Compare the selected smoothing parameters and
+the effective degrees of freedom, which measure how flexible each fitted
+surface is. In this example the spatial neighbourhoods select a smoother
+surface, with about 10 effective degrees of freedom compared with about 14.5
+under leave-one-out.
+
+```{r compare-spatial-fits, eval=have_cubble}
+loo_fit <- gam(weather_formula,
+  data = weather_data, method = "QNCV", na.action = na.fail
+)
+tibble(
+  criterion = c("Leave-one-out", "Spatial neighbourhoods"),
+  smoothing_parameter = c(unname(loo_fit$sp), unname(spatial_fit$sp)),
+  effective_degrees_of_freedom = c(
+    summary(loo_fit)$s.table[1, "edf"],
+    summary(spatial_fit)$s.table[1, "edf"]
+  )
+)
+```
+
+Draw the fitted spatial QNCV surface at the median station elevation. The
+contours show predicted maximum temperature in °C, and the dots are station
+locations. `too.far` controls which predictions appear in the figure. It masks
+areas far from any station after scaling each plot axis to run from 0 to 1.
+
+```{r plot-spatial-ncv, eval=have_cubble, fig.width=6, fig.height=5, dev.args=list(bg="white"), fig.alt="Contour map of fitted maximum temperatures across southeastern Australia, with weather station locations marked as dots."}
+vis.gam(spatial_fit,
+  view = c("east_km", "north_km"),
+  cond = list(elev = median(weather_data$elev)),
+  type = "response", plot.type = "contour", n.grid = 60, too.far = 0.1,
+  contour.col = "grey15",
+  xlab = "Easting (km)", ylab = "Northing (km)",
+  main = "Fitted temperature (°C)"
+)
+points(weather_data$east_km, weather_data$north_km, pch = 20)
+```
+
+## Assessing individual sites
+
+Define a 200-metre window. You can specify the distance before supplying any
+geometry.
+
+```{r site-window}
+site_window <- spatial_window(set_units(200, "m"))
+```
+
+Create six sites on a straight line in a projected coordinate reference
+system (CRS) with coordinates in metres.
+
+```{r sites, eval=have_spatial}
+sites <- st_as_sf(
+  tibble(
+    site = letters[1:6], east = c(0, 100, 500, 1000, 2000, 3000), north = 0
+  ),
   coords = c("east", "north"), crs = 32632
 )
-f <- neighbourhoods(sites, spatial = spatial_window(units::set_units(200, "m")))
-tibble::as_tibble(f, folds = 1:3, membership = TRUE)
 ```
 
-Square and hexagonal block widths are distinct from buffers. Custom polygon
-regions are also supported. A shared boundary belongs to the first region in
-deterministic region order. Overlapping region interiors require an explicit
-integer `assignment` column. Non-point observations retain their original
-geometry; block assignment uses the first intersecting block rather than
-silently substituting a centroid.
+Use the window to construct folds. Each fold assesses one site and omits that
+site and any others within 200 metres when fitting the model.
 
-Use `origin = c(x, y)` to keep a grid anchored across datasets or subsets, including
-negative coordinates. Square boundaries pass through the anchor; a hexagonal
-cell is centred on it. Hexagonal `size` is the distance between opposite edges,
-not the side length. Shared-boundary ties use cells ordered south to north, then
-west to east. With the same explicit anchor, changing the data extent does not
-move the grid. The default anchor is calculated from each dataset's extent.
-
-Grid creation checks its estimated allocation against `options(naboer.max_bytes)`
-(1 GiB by default) before allocating polygon cells. Increasing the block size
-or limiting the spatial extent can reduce the allocation.
-
-```{r blocks, eval=available}
-blocks <- spatial_folds(sites, size = units::set_units(500, "m"))
-buffered <- buffer_folds(blocks, spatial = spatial_window(units::set_units(100, "m")))
-tibble::as_tibble(buffered)
+```{r make-site-folds, eval=have_spatial}
+site_folds <- neighbourhoods(sites, spatial = site_window)
 ```
 
-Generated geographic grids use a local azimuthal equidistant projection. For
-large extents, select an appropriate explicit projected `grid_crs`. Physical
-distance radii remain separate from that grid representation.
-Geographic extents spanning more than 180 degrees of longitude require an
-explicit projected `grid_crs`, so an automatic local projection cannot silently
-split an antimeridian study area. Geographic distance windows still work across
-the antimeridian. A projected grid width describes distances in that projection;
-it need not be the same surface distance everywhere over a large study area.
+Compare the first three folds. Sites `a` and `b` are 100 metres apart, so both
+are omitted from training when either is assessed. Site `c` is more than 200
+metres from every other site, so its fold omits only site `c`.
+
+```{r site-folds, eval=have_spatial}
+as_tibble(site_folds, folds = 1:3)
+```
+
+Distance windows use the original geometries, including lines and polygons.
+Supply valid, non-empty geometries with a declared CRS. For longitude and
+latitude, `naboer` uses the current spherical or ellipsoidal distance setting in
+`sf`, as selected by `sf_use_s2()`.
+
+Distance windows and block assignments use the stored coordinates. If you want
+your design to use rounded locations, round the coordinates before constructing
+the folds. `fold_data()` preserves any `sf` precision attribute on the input.
+
+## Assessing spatial blocks
+
+Split the sites into 500-metre square blocks and assess the observations in one
+occupied block at a time. The `origin` fixes the grid to the same anchor if you
+repeat the analysis on a subset of these sites in the same CRS.
+
+```{r blocks, eval=have_spatial}
+blocks <- spatial_folds(sites, size = set_units(500, "m"), origin = c(0, 0))
+```
+
+Observations on either side of a block boundary can be close together. Add a
+100-metre buffer to omit nearby observations from training. The `n_buffer`
+column counts observations left out of training solely because of this buffer.
+
+```{r buffered-blocks, eval=have_spatial}
+buffered <- buffer_folds(
+  blocks, spatial = spatial_window(set_units(100, "m"))
+)
+as_tibble(buffered)
+```
+
+Square cell boundaries pass through `origin = c(x, y)`. With
+`shape = "hexagonal"`, a cell is centred on the anchor and `size` is the distance
+between opposite edges. The default anchor is calculated from the data extent.
+
+You can also supply your own polygons with `regions`. By default, an observation
+that intersects several cells or touches a shared boundary goes in the first
+matching cell. Generated grids are ordered by row from south to north, with
+cells in each row ordered west to east. Custom regions follow their supplied
+order. If the interiors of custom regions overlap, use `assignment` to name a
+column giving the region row number for each observation. Each assigned region
+must intersect its observation. The observations keep their original geometries.
+
+To generate blocks from longitude and latitude, `spatial_folds()` projects the
+data onto a local azimuthal equidistant projection centred on the study area.
+For large study areas, supply an appropriate projected `grid_crs`. You must set
+`grid_crs` if the longitude range exceeds 180 degrees, as can happen where a
+study area crosses the 180th meridian. Geographic distance windows work across
+this boundary. Block widths are measured in the grid's projection, so their
+surface distances may vary across a large study area.
+
+Before creating a grid, `naboer` checks its estimated memory use against the
+`naboer.max_bytes` option, which defaults to 1 GiB. A larger cell size or a
+smaller study extent reduces the number of cells.
 
 ## Repeated station observations
 
-```{r joint, eval=available}
+Suppose each site has one observation per day for ten days. Use `site` as the
+series key and `date` as the time index.
+
+```{r station-observations, eval=have_spatial}
 observations <- sites[rep(seq_len(nrow(sites)), each = 10), ]
 observations$date <- rep(as.Date("2024-01-01") + 0:9, nrow(sites))
+```
+
+Reuse the 200-metre spatial window and add a one-day window on either side of
+the assessment date. With `combine = "intersection"`, a record is omitted from
+training if it is close in both space and time. With `combine = "union"`,
+closeness in either dimension is sufficient.
+
+```{r joint-window, eval=have_spatial}
+day_window <- temporal_window(time_span(1, "days"))
 joint <- neighbourhoods(
   observations,
   key = site, index = date,
-  spatial = spatial_window(units::set_units(200, "m")),
-  temporal = temporal_window(time_span(1, "days")),
-  combine = "intersection"
+  spatial = site_window, temporal = day_window, combine = "intersection"
 )
-tibble::as_tibble(joint, folds = c(1, 15, 60))
 ```
 
-Intersection omits observations close in both space and time. Union omits
-observations close in either dimension. These represent different assumptions
-about residual dependence. `.by` imposes hard independent-domain boundaries in
-either case; keys identify stations and need not imply independent residuals.
-For fixed stations, geometry relationships are reused across times. Moving
-locations use each observation's geometry.
+Inspect an assessment on the first day at site `a`, the fifth day at site `b`
+and the last day at site `f`. The folds at the nearby sites `a` and `b` omit
+records from both sites. The fold at site `f` omits records from that site alone.
+
+```{r joint-folds, eval=have_spatial}
+as_tibble(joint, folds = c(1, 15, 60))
+```
+
+Temporal windows can span stations by default. Use `within = "key"` to limit
+the temporal window to each station, or `.by` if both spatial and temporal
+windows should be confined to independent groups. Distances between fixed
+stations are reused across dates. If sites move, each observation's recorded
+geometry determines its neighbours.
+
+To assess blocks instead of individual observations, use
+`spatiotemporal_folds()`. `mode = "crossed"` assesses the observations in a
+spatial block during a time block. `mode = "space"` holds out spatial blocks
+across all dates, and `mode = "time"` holds out time blocks across stations.
 
 ## Cubble
 
-Both nested spatial and long temporal cubbles are accepted. `fold_data()` gives
-one canonical row per temporal observation. Its `naboer_source` attribute maps
-canonical rows back to the nested spatial row and within-series row, or to the
-source long row. Actual spatial `sf` geometries are restored for temporal
-cubbles; polygon geometry is preserved.
-The active geometry is preserved even when the spatial component contains
-several `sfc` columns. Missing coordinates do not prevent a purely temporal
-design: these rows remain in `fold_data()`. Spatial constructors require complete,
-valid geometries and a CRS.
+For spatiotemporal data, use a cubble to keep measurements linked to their site
+locations. Put the measured values in a table with a site and date for each
+record, then link them to the site geometries.
 
-Cubble 1.0.0 itself accepts one key column. For data naturally identified by
-several columns, ordinary `sf` objects or tibbles support composite `key` and
-`.by` selections directly, or a composite identifier can be created before
-constructing a cubble.
-
-```{r cubble, eval=available && requireNamespace("cubble", quietly=TRUE)}
-values <- tibble::tibble(
-  site = rep(letters[1:6], each = 10),
-  date = rep(as.Date("2024-01-01") + 0:9, 6), value = seq_len(60)
+```{r make-cubble, eval=have_cubble}
+values <- st_drop_geometry(observations)
+values$value <- seq_len(nrow(values))
+cube <- make_cubble(
+  spatial = sites, temporal = values, key = site, index = date
 )
-cube <- cubble::make_cubble(spatial = sites, temporal = values, key = site, index = date)
-cube_folds <- neighbourhoods(cube,
-  spatial = spatial_window(units::set_units(200, "m")),
-  temporal = temporal_window(time_span(1, "days")), combine = "intersection"
+```
+
+`neighbourhoods()` reads the key and index from the cubble. Apply the same
+windows as before, then inspect the data in the row order used by the folds.
+
+```{r cubble-folds, eval=have_cubble}
+cube_folds <- neighbourhoods(
+  cube, spatial = site_window, temporal = day_window, combine = "intersection"
 )
 head(fold_data(cube_folds))
 ```
 
-Use `spatiotemporal_folds(mode = "crossed")` for joint block holdouts,
-`mode = "space"` for holding locations out across all times, and `mode = "time"`
-for holding periods out across stations.
+You can pass a nested spatial cubble or its long temporal form. In both cases,
+`fold_data()` returns one row per measurement with its original site geometry,
+including polygons. If the site data contain several geometry columns, the
+design uses the active geometry. The `naboer_source` attribute identifies the
+original site row and position within the series for nested data, or the
+original observation row for long data. Measurements with missing coordinates
+remain available for purely temporal folds.
+
+If several columns together identify a series, create a combined key before
+constructing a cubble. With an `sf` object or tibble, you can select the
+separate columns directly with `key`.
