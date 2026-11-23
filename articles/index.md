@@ -4,6 +4,8 @@
 
 - [Assessment, omission and prediction
   targets](https://gavinsimpson.github.io/naboer/articles/naboer.md):
+- [Cross-validation fold
+  designs](https://gavinsimpson.github.io/naboer/articles/fold-designs.md):
 - [Temporal neighbourhoods and
   forecasting](https://gavinsimpson.github.io/naboer/articles/temporal.md):
 - [Spatial and spatiotemporal

@@ -221,7 +221,9 @@ analysis_indices(folds, folds = 1)
 ## Choose a design for the prediction task
 
 Start with where, when or for whom the predictions will be made. The
-table shows common starting points.
+table shows common starting points. The [fold design
+schematics](https://gavinsimpson.github.io/naboer/articles/fold-designs.md)
+show which observations each design uses for fitting and scoring.
 
 | Prediction task | Design to consider |
 |----|----|
