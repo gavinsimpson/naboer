@@ -45,6 +45,7 @@ articles:
     navbar: ~
     contents:
       - naboer
+      - fold-designs
       - temporal
       - spatial
       - ecological
