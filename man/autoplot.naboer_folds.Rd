@@ -4,7 +4,7 @@
 \alias{autoplot.naboer_folds}
 \title{Plot selected cross-validation folds}
 \usage{
-\method{autoplot}{naboer_folds}(object, folds = 1L, ...)
+\method{autoplot}{naboer_folds}(object, folds = 1L, ..., data = NULL)
 }
 \arguments{
 \item{object}{A \code{naboer_folds} object.}
@@ -12,13 +12,17 @@
 \item{folds}{Integer fold selection; defaults to the first fold.}
 
 \item{...}{Unused; must be empty.}
+
+\item{data}{Optional observation data used to construct the folds, in their
+original row order.}
 }
 \value{
 A ggplot object.
 }
 \description{
-Spatial geometries are used when available, otherwise the temporal index or
-observation row is plotted. Only requested folds are expanded.
+By default, plots use observation row numbers. Supplying the original data
+lets the plot use spatial geometries or the temporal index when available.
+Only requested folds are expanded.
 The \code{omitted} role denotes omission-only observations; these can be dependence
 buffers, unavailable future observations, or other exclusions.
 }

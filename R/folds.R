@@ -10,7 +10,8 @@
 #'   generated dependence queries and qualify group/block identities. Custom
 #'   indices and existing omissions are retained as supplied; V-fold allocation
 #'   can combine whole blocks from several domains in one fold.
-#' @param id Optional tidy selection of a unique observation identifier.
+#' @param id Optional tidy selection of a unique observation identifier to
+#'   record as column metadata.
 #' @return A compact `naboer_folds` object.
 #' @export
 #' @examples
@@ -36,7 +37,7 @@ new_folds <- function(ctx, assessment, omission, spec = list()) {
   assessment <- list_index(assessment)
   x <- structure(
     list(
-      ctx = ctx, assessment = assessment,
+      ctx = ctx[c("n", "key", "index", "by", "id")], assessment = assessment,
       omission = list_index(omission), spec = spec,
       labels = as.character(seq_len(index_nfold(assessment)))
     ),
@@ -56,9 +57,8 @@ validate_folds <- function(x) {
     abort_naboer("Expected a `naboer_folds` object.", "structure")
   }
   if (!is.numeric(x$ctx$n) || length(x$ctx$n) != 1L || is.na(x$ctx$n) ||
-    !is.finite(x$ctx$n) || x$ctx$n < 2 || x$ctx$n != floor(x$ctx$n) ||
-    !is.data.frame(x$ctx$data) || nrow(x$ctx$data) != x$ctx$n) {
-    abort_naboer("Fold observations and their stored row count do not match.", "structure")
+    !is.finite(x$ctx$n) || x$ctx$n < 2 || x$ctx$n != floor(x$ctx$n)) {
+    abort_naboer("The fold object must contain a valid observation count.", "structure")
   }
   validate_index(x$assessment, x$ctx$n)
   validate_index(x$omission, x$ctx$n)
@@ -123,7 +123,8 @@ vfold_folds <- function(data, v = 10L, group = NULL, balance = TRUE, seed = NULL
   )
 }
 
-group_folds_from_blocks <- function(ctx, block, v = NULL, balance = TRUE, seed = NULL, spec = list()) {
+group_folds_from_blocks <- function(ctx, block, v = NULL, balance = TRUE, seed = NULL,
+                                   spec = list()) {
   if (!is.logical(balance) || length(balance) != 1L || is.na(balance)) {
     abort_naboer("`balance` must be TRUE or FALSE.")
   }
@@ -150,23 +151,48 @@ group_folds_from_blocks <- function(ctx, block, v = NULL, balance = TRUE, seed =
   } else {
     sets <- unname(units)
   }
-  spec$blocks <- block
+  spec$blocks <- labels
   spec$v <- v
   spec$balance <- balance
   if (!is.null(seed) || is.null(spec$seed)) spec$seed <- seed
   new_folds(ctx, sets, sets, spec)
 }
 
-#' Retrieve the canonical observation data
+#' Prepare observations in the order used by a fold object
 #' @param x A `naboer_folds` object.
+#' @param data The observation data used to construct the folds, in their
+#'   original row order.
+#' @details Supply the original data. The observation count is checked after
+#'   preparation, and the row order is assumed. For cubbles, preparation unfolds
+#'   the observations and attaches their spatial data.
 #' @return A tibble in the exact order used by exported indices. For cubbles,
 #'   `attr(result, "naboer_source")` maps observations to source rows.
 #' @export
-fold_data <- function(x) {
-  if (!inherits(x, "naboer_folds")) abort_naboer("Expected a `naboer_folds` object.", "structure")
-  out <- x$ctx$data
-  if (!is.null(x$ctx$source)) attr(out, "naboer_source") <- x$ctx$source
+fold_data <- function(x, data) {
+  ctx <- prepare_fold_context(x, data)
+  out <- ctx$data
+  if (!is.null(ctx$source)) attr(out, "naboer_source") <- ctx$source
   out
+}
+
+prepare_fold_context <- function(x, data, key = rlang::quo(NULL), index = rlang::quo(NULL)) {
+  if (!inherits(x, "naboer_folds")) abort_naboer("Expected a `naboer_folds` object.", "structure")
+  if (missing(data)) {
+    abort_naboer("Supply the original observations in `data`.", "data")
+  }
+  ctx <- prepare_data(data,
+    key = if (rlang::quo_is_null(key)) stored_selection(x$ctx$key) else key,
+    index = if (rlang::quo_is_null(index)) stored_selection(x$ctx$index) else index,
+    by = stored_selection(x$ctx$by), id = stored_selection(x$ctx$id)
+  )
+  check_fold_row_count(x, ctx$data)
+  ctx
+}
+
+check_fold_row_count <- function(x, data) {
+  if (!is.data.frame(data) || nrow(data) != x$ctx$n) {
+    abort_naboer("Data rows do not match fold observations.", "alignment")
+  }
 }
 
 fold_selection <- function(x, folds) {

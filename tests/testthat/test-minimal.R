@@ -6,7 +6,7 @@ test_that("core folds and calendar workflows run without optional packages", {
   expect_equal(as_nei(loo_folds(data))$a, 1:8)
   f <- neighbourhoods(data, temporal = temporal_window(time_span(1)), index = time)
   expect_equal(omission_indices(f, 4)[[1]], 3:5)
-  expect_equal(fold_data(f), data)
+  expect_equal(fold_data(f, data), data)
   expect_s3_class(tibble::as_tibble(f), "tbl_df")
 
   monthly <- tibble::tibble(date = seq(as.Date("2024-01-01"), by = "month", length.out = 4))
@@ -27,7 +27,7 @@ test_that("absent optional dependencies produce install guidance", {
   expect_s3_class(window, "naboer_spatial_window")
   expect_error(neighbourhoods(data, spatial = window), "Install.*sf", class = "naboer_error_dependency")
   expect_error(phylogenetic_window(NULL, taxon, 1), "Install.*ape", class = "naboer_error_dependency")
-  expect_error(as_rset(loo_folds(data)), "Install.*rsample", class = "naboer_error_dependency")
+  expect_error(as_rset(loo_folds(data), data), "Install.*rsample", class = "naboer_error_dependency")
   expect_error(autoplot.naboer_folds(loo_folds(data)), "Install.*ggplot2", class = "naboer_error_dependency")
   fake_tsibble <- data
   class(fake_tsibble) <- c("tbl_ts", class(data))

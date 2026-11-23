@@ -87,30 +87,39 @@ print.naboer_folds <- function(x, ...) {
 
 #' Plot selected cross-validation folds
 #'
-#' Spatial geometries are used when available, otherwise the temporal index or
-#' observation row is plotted. Only requested folds are expanded.
+#' By default, plots use observation row numbers. Supplying the original data
+#' lets the plot use spatial geometries or the temporal index when available.
+#' Only requested folds are expanded.
 #' The `omitted` role denotes omission-only observations; these can be dependence
 #' buffers, unavailable future observations, or other exclusions.
 #' @param object A `naboer_folds` object.
 #' @param folds Integer fold selection; defaults to the first fold.
 #' @param ... Unused; must be empty.
+#' @param data Optional observation data used to construct the folds, in their
+#'   original row order.
 #' @return A ggplot object.
 #' @exportS3Method ggplot2::autoplot
-autoplot.naboer_folds <- function(object, folds = 1L, ...) {
+autoplot.naboer_folds <- function(object, folds = 1L, ..., data = NULL) {
   need_package("ggplot2")
   rlang::check_dots_empty()
   selected <- fold_selection(object, folds)
   if (!length(selected)) abort_naboer("Select at least one fold to plot.")
-  geom <- geometry_columns(object$ctx$data)
+  index <- if (is.null(data)) character() else object$ctx$index
+  observations <- if (is.null(data)) {
+    tibble::tibble(.rows = object$ctx$n)
+  } else {
+    fold_data(object, data)
+  }
+  geom <- geometry_columns(observations)
   pieces <- lapply(selected, function(i) {
-    data <- object$ctx$data
+    data <- observations
     role <- rep("analysis", object$ctx$n)
     role[index_get(object$omission, i)] <- "omitted"
     role[index_get(object$assessment, i)] <- "assessment"
     data$.naboer_role <- factor(role, c("analysis", "omitted", "assessment"))
     data$.naboer_fold <- object$labels[[i]]
     data$.naboer_observation <- seq_len(object$ctx$n)
-    if (length(object$ctx$index)) data$.naboer_time <- data[[object$ctx$index]]
+    if (length(index)) data$.naboer_time <- data[[index]]
     data
   })
   data <- dplyr::bind_rows(pieces)
@@ -120,7 +129,7 @@ autoplot.naboer_folds <- function(object, folds = 1L, ...) {
     p <- ggplot2::ggplot(data) +
       ggplot2::geom_sf(ggplot2::aes(colour = .data$.naboer_role))
   } else {
-    if (!length(object$ctx$index)) data$.naboer_time <- data$.naboer_observation
+    if (!length(index)) data$.naboer_time <- data$.naboer_observation
     p <- ggplot2::ggplot(data, ggplot2::aes(
       x = .data$.naboer_time,
       y = .data$.naboer_role, colour = .data$.naboer_role
@@ -129,6 +138,6 @@ autoplot.naboer_folds <- function(object, folds = 1L, ...) {
   }
   p + ggplot2::facet_wrap(ggplot2::vars(.data$.naboer_fold)) +
     ggplot2::scale_colour_manual(values = c(analysis = "#737373", omitted = "#E69F00", assessment = "#0072B2"), drop = FALSE) +
-    ggplot2::labs(colour = "Role", x = if (length(object$ctx$index)) object$ctx$index else "Observation", y = NULL) +
+    ggplot2::labs(colour = "Role", x = if (length(index)) index else "Observation", y = NULL) +
     ggplot2::theme_minimal()
 }

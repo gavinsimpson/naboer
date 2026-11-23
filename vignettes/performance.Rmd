@@ -28,10 +28,16 @@ if (have_gratia) {
 }
 ```
 
-Fold objects store the data, the observations to assess and the observations to
-omit from training. Observations used for training are called the analysis set.
-`naboer` works out that set when you ask for it by taking the observations that
-remain after omission.
+Fold objects store the observation count and record which rows to assess and
+which to omit from training. The analysis set contains the rows available for
+fitting. `analysis_indices()` returns that set by removing each fold's
+omission set from the full set of rows.
+
+Keep the observation table separately and use it in the same row order when
+fitting with mgcv. `as_nei(folds, data = model_data)` checks the row count if
+you supply modelling data. Pass the original observations to `as_rset()` or
+`buffer_folds()`. With a nested cubble, `fold_data(folds, cube)` unfolds the
+observations in the order used by the fold indices.
 
 To save memory, a time window can be stored as start and end positions in a
 shared time ordering. Folds with the same set of neighbours can share that
@@ -98,8 +104,9 @@ If you need the actual row numbers, use `membership = TRUE` with `as_tibble()`
 for assessment and omission, or call `assessment_indices()`,
 `omission_indices()` or `analysis_indices()` directly. Supply `folds` to limit
 the result to the folds you need. Asking for every fold can use much more
-memory than storing the design. With `ggplot2` loaded, you can plot the
-observation roles in a single fold with `autoplot(co2_folds, folds = 1)`.
+memory than storing the design. With `ggplot2` loaded, plot observation roles
+against row numbers with `autoplot(co2_folds, folds = 1)`. Add
+`data = co2_monthly` to plot against dates.
 
 ## Exporting to mgcv
 
@@ -111,13 +118,11 @@ integer index limit and estimates the size of these vectors before creating
 them.
 
 Choose 120 folds at random for smoothness selection. Here there is one fold
-per row, so draw the fold numbers from the row count. Use the data returned
-by `fold_data()` to keep the model rows aligned with the fold indices.
+per row, so draw the fold numbers from the row count of `co2_monthly`.
 
 ```{r sample-folds}
-co2_data <- fold_data(co2_folds)
 set.seed(42)
-sampled_folds <- sort(sample.int(nrow(co2_data), size = 120))
+sampled_folds <- sort(sample.int(nrow(co2_monthly), size = 120))
 ```
 
 Pass the selected fold numbers to `as_nei()` as `sample`. Set a memory limit of
@@ -127,7 +132,7 @@ call with `max_bytes`.
 
 ```{r export-nei}
 co2_nei <- as_nei(co2_folds,
-  sample = sampled_folds, data = co2_data, max_bytes = 100 * 1024^2
+  sample = sampled_folds, max_bytes = 100 * 1024^2
 )
 lengths(co2_nei)
 ```
@@ -159,7 +164,7 @@ The fitted model uses all 468 observations.
 ```{r fit-co2}
 co2_fit <- bam(
   concentration ~ s(year, bs = "cr", k = 20) + s(month, bs = "cc", k = 12),
-  data = co2_data, knots = list(month = c(0.5, 12.5)),
+  data = co2_monthly, knots = list(month = c(0.5, 12.5)),
   method = "NCV", nei = co2_nei, discrete = TRUE, na.action = na.fail
 )
 ```
@@ -168,7 +173,7 @@ Use gratia's `add_fitted()` to put the fitted concentrations alongside the
 observations.
 
 ```{r co2-fitted, eval=have_gratia}
-co2_curves <- add_fitted(co2_data, co2_fit, value = "fitted_ppm")
+co2_curves <- add_fitted(co2_monthly, co2_fit, value = "fitted_ppm")
 ```
 
 Plot the fitted concentrations as a blue line and the observations as grey
@@ -193,9 +198,10 @@ be slow to fit even when the exported vectors fit in memory.
 
 ## Exporting to rsample
 
-`as_rset()` exports the training and assessment row numbers for each split. In
-a leave-one-out design with one million rows, every split has 999,999 training
-rows. The training indices alone would require about 4 TB of memory.
+`as_rset()` takes the original observations and exports the training and
+assessment row numbers for each split. In a leave-one-out design with one
+million rows, every split has 999,999 training rows. The training indices
+alone would require about 4 TB of memory.
 `as_rset()` checks its own `max_bytes` limit, which also defaults to 1 GiB. The
 estimate covers the index vectors. The `rsample` split objects and data need
 additional memory.

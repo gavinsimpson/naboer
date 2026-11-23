@@ -141,10 +141,10 @@ spatial_membership <- function(ctx, window) {
 #'
 #' Blocks are defined independently of buffers and fold counts. Shared boundaries
 #' are assigned to the first region in deterministic grid/region order. Features
-#' intersecting several blocks are also assigned to the first intersected block;
-#' their original geometries are preserved. Geographic grids use a local
-#' azimuthal equidistant projection centred on the data bounding box unless
-#' `grid_crs` is supplied. Custom regions retain their own geometry.
+#' intersecting several blocks are also assigned to the first intersected block.
+#' Assignments use the original observation geometries. Geographic grids use a
+#' local azimuthal equidistant projection centred on the data bounding box unless
+#' `grid_crs` is supplied.
 #' @param data A data frame, tibble, sf object, tsibble, or cubble.
 #' @param size A positive scalar with physical distance units, defining grid width.
 #' @param shape Square or hexagonal grid cells.
@@ -181,7 +181,7 @@ spatial_folds <- function(data, size = NULL, shape = c("square", "hexagonal"),
     spec = list(
       strategy = "spatial", size = size,
       shape = shape, origin = attr(block, "origin"),
-      regions = regions, assignment = attr(block, "assignment"),
+      assignment = attr(block, "assignment"),
       grid_crs = attr(block, "grid_crs"),
       spatial_engine = attr(block, "spatial_engine")
     )
@@ -338,7 +338,7 @@ spatiotemporal_folds <- function(data, spatial_size = NULL, temporal_size = NULL
     spec = list(
       strategy = "spatiotemporal", mode = mode,
       spatial_size = spatial_size,
-      temporal_size = temporal_size, shape = shape, regions = regions,
+      temporal_size = temporal_size, shape = shape,
       assignment = if (!is.null(space)) attr(space, "assignment") else character(),
       spatial_origin = if (!is.null(space)) attr(space, "origin"),
       temporal_origin = temporal_origin, within = within,

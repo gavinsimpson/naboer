@@ -70,7 +70,7 @@ test_that("the geometry cache distinguishes mixed types and close coordinates", 
   expect_equal(omission_indices(neighbourhoods(data, spatial = spatial_window(radius))), expected)
   expect_equal(expected[[3L]], c(2L, 3L, 5L))
   focal <- custom_folds(data, list(3L))
-  expect_equal(omission_indices(buffer_folds(focal, spatial = spatial_window(radius))), expected[3L])
+  expect_equal(omission_indices(buffer_folds(focal, data, spatial = spatial_window(radius))), expected[3L])
 })
 
 test_that("polygons use boundary distance rather than centroids", {
@@ -319,7 +319,7 @@ test_that("precision metadata cannot discard focal observations or change radius
     distances <- sf::st_distance(points)
     expected <- lapply(seq_len(nrow(points)), function(i) unname(which(distances[i, ] <= radius)))
     expect_equal(omission_indices(folds), expected)
-    expect_identical(fold_data(folds)$geometry, original)
+    expect_identical(fold_data(folds, points)$geometry, original)
   }
   blocks <- spatial_folds(points, units::set_units(1, "m"), origin = c(0, 0))
   expect_equal(index_get(blocks$assessment, 1), 1:2)

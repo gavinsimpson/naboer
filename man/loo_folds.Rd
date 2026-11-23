@@ -14,7 +14,8 @@ generated dependence queries and qualify group/block identities. Custom
 indices and existing omissions are retained as supplied; V-fold allocation
 can combine whole blocks from several domains in one fold.}
 
-\item{id}{Optional tidy selection of a unique observation identifier.}
+\item{id}{Optional tidy selection of a unique observation identifier to
+record as column metadata.}
 }
 \value{
 A compact \code{naboer_folds} object.

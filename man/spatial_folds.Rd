@@ -55,8 +55,8 @@ A \code{naboer_folds} object.
 \description{
 Blocks are defined independently of buffers and fold counts. Shared boundaries
 are assigned to the first region in deterministic grid/region order. Features
-intersecting several blocks are also assigned to the first intersected block;
-their original geometries are preserved. Geographic grids use a local
-azimuthal equidistant projection centred on the data bounding box unless
-\code{grid_crs} is supplied. Custom regions retain their own geometry.
+intersecting several blocks are also assigned to the first intersected block.
+Assignments use the original observation geometries. Geographic grids use a
+local azimuthal equidistant projection centred on the data bounding box unless
+\code{grid_crs} is supplied.
 }

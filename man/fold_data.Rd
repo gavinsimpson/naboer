@@ -2,17 +2,25 @@
 % Please edit documentation in R/folds.R
 \name{fold_data}
 \alias{fold_data}
-\title{Retrieve the canonical observation data}
+\title{Prepare observations in the order used by a fold object}
 \usage{
-fold_data(x)
+fold_data(x, data)
 }
 \arguments{
 \item{x}{A \code{naboer_folds} object.}
+
+\item{data}{The observation data used to construct the folds, in their
+original row order.}
 }
 \value{
 A tibble in the exact order used by exported indices. For cubbles,
 \code{attr(result, "naboer_source")} maps observations to source rows.
 }
 \description{
-Retrieve the canonical observation data
+Prepare observations in the order used by a fold object
+}
+\details{
+Supply the original data. The observation count is checked after
+preparation, and the row order is assumed. For cubbles, preparation unfolds
+the observations and attaches their spatial data.
 }

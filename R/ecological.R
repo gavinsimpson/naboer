@@ -202,7 +202,7 @@ phylogenetic_folds <- function(data, tree, taxon, v = NULL, height = NULL,
     ctx, block,
     spec = list(
       strategy = "phylogenetic", taxon = rlang::as_label(rlang::enquo(taxon)),
-      v = v, height = height, clades = clades
+      v = v, height = height
     )
   )
 }

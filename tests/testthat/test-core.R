@@ -3,7 +3,7 @@ test_that("custom assessment and omission are distinct and export correctly", {
   folds <- custom_folds(x, list(c(3L, 1L), 6L), list(c(4L, 1L, 3L), 5:7), id = id)
   expect_s3_class(folds, "naboer_folds")
   expect_invisible(validate_folds(folds))
-  expect_equal(fold_data(folds), x)
+  expect_equal(fold_data(folds, x), x)
   expect_equal(assessment_indices(folds), list(c(1L, 3L), 6L))
   expect_equal(omission_indices(folds, c(2L, 1L)), list(5:7, c(1L, 3L, 4L)))
   expect_equal(analysis_indices(folds), list(c(2L, 5:8), c(1:4, 8L)))
@@ -65,7 +65,7 @@ test_that("construction and selection reject invalid memberships", {
   for (bad in list(0L, 6L, 1.5, NA_integer_, Inf, "a")) {
     expect_error(assessment_indices(folds, bad), class = "naboer_error_indices")
   }
-  expect_error(fold_data(list()), class = "naboer_error_structure")
+  expect_error(fold_data(list(), x), class = "naboer_error_structure")
   expect_error(validate_folds(list()), class = "naboer_error_structure")
   invalid <- folds
   invalid$ctx$n <- NULL
@@ -89,10 +89,8 @@ test_that("data domains, identifiers and grouped input are explicit", {
   expect_error(loo_folds(bad, .by = domain), "missing", class = "naboer_error_missing")
   expect_error(loo_folds(x, id = c(id, y)), "at most one")
   folds <- loo_folds(x, id = id)
-  expect_identical(as_nei(folds, data = x[c("id", "y")]), as_nei(folds))
-  expect_error(as_nei(folds, data = x[5:1, ]), "order", class = "naboer_error_alignment")
+  expect_identical(as_nei(folds, data = x["y"]), as_nei(folds))
   expect_error(as_nei(folds, data = x[-1, ]), "rows", class = "naboer_error_alignment")
-  expect_error(as_nei(loo_folds(x), data = transform(x, y = y + 1)), "order")
 })
 
 test_that("packed export guards allocation and preserves optional settings", {

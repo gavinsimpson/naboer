@@ -22,6 +22,10 @@ select_cols <- function(data, quo, arg, allow_empty = TRUE) {
   out
 }
 
+stored_selection <- function(columns) {
+  rlang::new_quosure(rlang::expr(tidyselect::all_of(!!columns)), rlang::base_env())
+}
+
 group_ids <- function(data, columns) {
   if (!length(columns)) {
     return(rep.int(1L, nrow(data)))

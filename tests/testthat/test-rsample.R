@@ -2,7 +2,7 @@ test_that("rsample round trips preserve exclusion-only observations", {
   skip_if_not_installed("rsample")
   x <- tibble::tibble(y = 1:8)
   original <- custom_folds(x, list(2L, 6L), list(1:3, 5:7))
-  resamples <- as_rset(original)
+  resamples <- as_rset(original, x)
   expect_s3_class(resamples, "manual_rset")
   expect_equal(as.integer(resamples$splits[[1]], data = "analysis"), 4:8)
   expect_equal(as.integer(resamples$splits[[1]], data = "assessment"), 2L)
@@ -10,7 +10,7 @@ test_that("rsample round trips preserve exclusion-only observations", {
   expect_equal(assessment_indices(imported), assessment_indices(original))
   expect_equal(omission_indices(imported), omission_indices(original))
   expect_equal(analysis_indices(imported), analysis_indices(original))
-  expect_equal(fold_data(imported), fold_data(original))
+  expect_equal(resamples$splits[[1]]$data, x)
 })
 
 test_that("ordinary V-fold and Monte Carlo resamples import faithfully", {
@@ -103,35 +103,39 @@ test_that("observation-level long cubble and canonical exports import faithfully
   expect_equal(assessment_indices(imported), list(1:2))
   expect_equal(omission_indices(imported), list(1:3))
   expect_equal(analysis_indices(imported), list(4:30))
-  expect_equal(fold_data(imported)$date, long$date)
-  original <- temporal_folds(cubble::climate_mel, time_span(2, "days"), within = "key")
-  restored <- from_rset(as_rset(original))
+  expect_equal(fold_data(imported, long)$date, long$date)
+  cube <- cubble::climate_mel
+  original <- temporal_folds(cube, time_span(2, "days"), within = "key")
+  resamples <- as_rset(original, cube)
+  restored <- from_rset(resamples)
   expect_equal(assessment_indices(restored), assessment_indices(original))
   expect_equal(analysis_indices(restored), analysis_indices(original))
-  expect_equal(fold_data(restored), fold_data(original))
+  expect_equal(resamples$splits[[1]]$data, fold_data(original, cube))
 })
 
 test_that("rsample conversion guards large analysis complements before expansion", {
   skip_if_not_installed("rsample")
   # Native LOO storage is linear, but these analysis complements would require
   # about 3.6 GB of integer indices. The error must occur without allocating it.
-  large <- loo_folds(tibble::tibble(y = seq_len(30000L)))
-  expect_error(as_rset(large), "before R object overhead.*exceeding",
+  large_data <- tibble::tibble(y = seq_len(30000L))
+  large <- loo_folds(large_data)
+  expect_error(as_rset(large, large_data), "before R object overhead.*exceeding",
     class = "naboer_error_memory"
   )
-  small <- loo_folds(tibble::tibble(y = 1:8))
-  expect_error(as_rset(small, max_bytes = 1), "Reduce the design",
+  small_data <- tibble::tibble(y = 1:8)
+  small <- loo_folds(small_data)
+  expect_error(as_rset(small, small_data, max_bytes = 1), "Reduce the design",
     class = "naboer_error_memory"
   )
   old <- options(naboer.max_bytes = 1)
   on.exit(options(old))
-  expect_error(as_rset(small), class = "naboer_error_memory")
+  expect_error(as_rset(small, small_data), class = "naboer_error_memory")
   expect_equal(
-    analysis_indices(from_rset(as_rset(small, max_bytes = Inf))),
+    analysis_indices(from_rset(as_rset(small, small_data, max_bytes = Inf))),
     analysis_indices(small)
   )
   for (invalid in list(NA_real_, -1, "unlimited", c(1, 2))) {
-    expect_error(as_rset(small, max_bytes = invalid), "max_bytes")
+    expect_error(as_rset(small, small_data, max_bytes = invalid), "max_bytes")
   }
 })
 
@@ -145,30 +149,32 @@ test_that("round trips preserve independent domains and temporal column metadata
     temporal = temporal_window(time_span(0)),
     key = station, index = time, .by = network, id = id, within = "key"
   )
-  resamples <- as_rset(original)
+  resamples <- as_rset(original, x)
   restored <- from_rset(resamples)
   expect_equal(
-    restored$ctx[c("key", "index", "by", "id", "domains")],
-    original$ctx[c("key", "index", "by", "id", "domains")]
+    restored$ctx[c("key", "index", "by", "id")],
+    original$ctx[c("key", "index", "by", "id")]
   )
-  buffered <- buffer_folds(restored, temporal = temporal_window(time_span(1)), within = "key")
+  window <- temporal_window(time_span(1, "seconds"))
+  buffered <- buffer_folds(restored, x, temporal = window, within = "key")
   expect_equal(omission_indices(buffered, 2), list(1:3))
   explicit <- from_rset(resamples, index = other_time, .by = station)
   expect_identical(explicit$ctx$index, "other_time")
   expect_identical(explicit$ctx$by, "station")
-  expect_equal(explicit$ctx$domains, rep(1L, 8))
+  across_networks <- buffer_folds(explicit, x, temporal = window, within = "key")
+  expect_equal(omission_indices(across_networks, 2), list(c(1:3, 5:7)))
   attr(resamples, "naboer_columns") <- NULL
   external <- from_rset(resamples, id = id, key = station, index = time, .by = network)
   expect_equal(
-    external$ctx[c("key", "index", "by", "id", "domains")],
-    original$ctx[c("key", "index", "by", "id", "domains")]
+    external$ctx[c("key", "index", "by", "id")],
+    original$ctx[c("key", "index", "by", "id")]
   )
 })
 
 test_that("stale resample metadata and invalid recovered identifiers are rejected", {
   skip_if_not_installed("rsample")
   x <- tibble::tibble(id = 1:8, time = 1:8)
-  resamples <- as_rset(loo_folds(x, id = id))
+  resamples <- as_rset(loo_folds(x, id = id), x)
   missing <- resamples
   attr(missing, "naboer_columns")$by <- "removed_network"
   expect_error(from_rset(missing), "metadata.*missing columns", class = "naboer_error_alignment")

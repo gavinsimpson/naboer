@@ -79,10 +79,9 @@ approximate predictions for each held-out plant. The resulting model uses
 all 12 plants.
 
 ```{r grass-fit}
-plant_data <- fold_data(plant_folds)
-plant_nei <- as_nei(plant_folds, data = plant_data)
+plant_nei <- as_nei(plant_folds)
 plant_fit <- gam(uptake ~ condition + s(conc, by = condition, k = 5),
-  data = plant_data, method = "QNCV", nei = plant_nei, na.action = na.fail
+  data = grass, method = "QNCV", nei = plant_nei, na.action = na.fail
 )
 ```
 
@@ -91,9 +90,9 @@ observed range of concentrations for each origin and treatment.
 
 ```{r grass-curve-data, eval=have_gratia}
 plant_grid <- expand.grid(
-  conc = seq(min(plant_data$conc), max(plant_data$conc), length.out = 100),
-  Type = levels(plant_data$Type),
-  Treatment = levels(plant_data$Treatment)
+  conc = seq(min(grass$conc), max(grass$conc), length.out = 100),
+  Type = levels(grass$Type),
+  Treatment = levels(grass$Treatment)
 )
 plant_grid$condition <- with(plant_grid, interaction(Type, Treatment))
 plant_curves <- add_fitted(plant_grid, plant_fit, value = "fitted_uptake")
@@ -104,7 +103,7 @@ measurements. The curves for chilled plants are lower at both origins,
 especially for plants from Mississippi.
 
 ```{r grass-curves, eval=have_gratia, fig.width=7, fig.height=4, dev.args=list(bg="white"), fig.alt="Carbon dioxide uptake curves and observed measurements for Quebec and Mississippi grasses. The fitted curves are lower for chilled plants, especially those from Mississippi."}
-ggplot(plant_data, aes(x = conc, colour = Treatment)) +
+ggplot(grass, aes(x = conc, colour = Treatment)) +
   geom_point(aes(y = uptake), alpha = 0.55) +
   geom_line(data = plant_curves, aes(y = fitted_uptake), linewidth = 0.9) +
   facet_wrap(vars(Type)) +
@@ -302,7 +301,7 @@ station. Distances are measured from the assessment observation itself.
 
 ```{r buffered-design}
 buffered <- buffer_folds(
-  leave_one_out,
+  leave_one_out, observations,
   temporal = temporal_window(time_span(1, "days")),
   key = station, index = date, within = "key"
 )
@@ -317,13 +316,13 @@ as_tibble(buffered, folds = 2)
 analysis_indices(buffered, folds = 2)
 ```
 
-The next examples require the optional **rsample** package. Export with
-`as_rset()` to refit the model on each analysis set using rsample. The
+The next examples require the optional **rsample** package. Pass the original
+observations to `as_rset()` to refit the model on each analysis set. The
 exported resamples store the analysis and assessment sets separately. Rows
 excluded by the buffer alone belong to neither set.
 
 ```{r export-rsample, eval=have_rsample}
-resamples <- as_rset(buffered)
+resamples <- as_rset(buffered, observations)
 ```
 
 Import with `from_rset()` to get a naboer design back. It treats all rows
@@ -349,9 +348,9 @@ by this design.
 
 Create resamples on individual observation rows. With a nested spatial cubble,
 use the cubble package's `face_temporal()` to switch to one row per observation,
-or resample the observation table returned by `fold_data()`. If a row
-represents an entire station, its index cannot identify a single observation
-after expansion.
+or supply the folds and original cubble to `fold_data()` and resample the
+resulting table. If a row represents an entire station, its index cannot
+identify a single observation after expansion.
 
 Exporting to rsample can take much more memory than storing a naboer design.
 For example, leave-one-out stores almost all row indices in each rsample
@@ -361,7 +360,7 @@ assessment indices before creating them. The default limit comes from
 The estimate counts integer indices and excludes R object overhead.
 
 For neighbourhood cross-validation in mgcv, pass `as_nei(buffered)` as `nei`
-and fit to `fold_data(buffered)`. Prepare complete modelling data before
+and fit to the original `observations`. Prepare complete modelling data before
 constructing folds and use `na.action = na.fail` when fitting. Check
 whether the approximation is accurate for your model and omission size.
 See [Assessment, omission and prediction targets](naboer.html) for an example.

@@ -12,11 +12,12 @@ calculations, deterministic integration tests and exact-refit comparisons.
   per domain. Explicit custom memberships and existing omissions are retained.
 - Assessment is nonempty and contained in omission; analysis is its complement.
   Repeated assessment contributes repeatedly to the criterion. Canonical data
-  order determines all exported indices; identifiers provide alignment checks.
+  order determines all exported indices. Use the same observation order for
+  model fitting and for operations that take the original data.
 - Single folds remain useful native objects and rsample splits. `nei` export
   requires at least two folds for the tested mgcv integration.
-- Native storage stays compact. Explicit accessors can expand memberships;
-  `as_nei()` and `as_rset()` guard their different materialisation costs.
+- Native storage holds compact memberships. Accessors can expand them, and
+  `as_nei()` and `as_rset()` guard their respective materialisation costs.
 - `from_rset()` accepts `key`, `index` and `.by` selections and restores metadata
   retained by `as_rset()`. Explicit selections override saved metadata. Existing
   positional use of `id` is preserved.

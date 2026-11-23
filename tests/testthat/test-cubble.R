@@ -69,7 +69,7 @@ test_that("one-station nested cubbles are valid multiple-observation data", {
   skip_if_not_installed("sf")
   cube <- cubble::climate_mel[1, ]
   folds <- temporal_folds(cube, size = time_span(2, "days"))
-  expect_equal(nrow(fold_data(folds)), 10L)
+  expect_equal(nrow(fold_data(folds, cube)), 10L)
   expect_equal(index_nfold(folds$assessment), 5L)
 })
 
@@ -82,8 +82,9 @@ test_that("missing spatial coordinates do not prevent purely temporal cubble fol
   expected <- temporal_folds(cubble::climate_mel, time_span(2, "days"), within = "domain")
   actual <- temporal_folds(cube, time_span(2, "days"), within = "domain")
   expect_equal(assessment_indices(actual), assessment_indices(expected))
-  expect_equal(nrow(fold_data(actual)), 30L)
-  expect_true(all(sf::st_is_empty(fold_data(actual)$geometry[1:10])))
+  canonical <- fold_data(actual, cube)
+  expect_equal(nrow(canonical), 30L)
+  expect_true(all(sf::st_is_empty(canonical$geometry[1:10])))
   expect_error(
     neighbourhoods(cube, spatial = spatial_window(units::set_units(1, "km"))),
     "CRS|nonempty"
@@ -112,7 +113,7 @@ test_that("source rows and subrows follow tsibble sorting during cubble conversi
   cube <- cubble::make_cubble(sites, times, key = id, index = time, coords = c(x, y))
   cube$ts[[1L]] <- cube$ts[[1L]][2:1, ]
 
-  canonical <- fold_data(loo_folds(cube))
+  canonical <- fold_data(loo_folds(cube), cube)
   source <- attr(canonical, "naboer_source", exact = TRUE)
   expect_identical(source$.source_row, c(2L, 1L, 1L, 3L))
   expect_identical(source$.source_subrow, c(1L, 2L, 1L, 1L))
@@ -137,7 +138,8 @@ test_that("cubble adapters preserve active geometry when multiple sfc columns ex
   for (input in list(cube, cubble::face_temporal(cube))) {
     folds <- neighbourhoods(input, spatial = spatial_window(units::set_units(1, "m")))
     expect_equal(omission_indices(folds, 1)[[1]], 1:4)
-    expect_identical(attr(fold_data(folds), "sf_column"), "geometry")
-    expect_equal(fold_data(folds)$geometry, sf::st_geometry(sites)[rep(1:3, each = 2)])
+    canonical <- fold_data(folds, input)
+    expect_identical(attr(canonical, "sf_column"), "geometry")
+    expect_equal(canonical$geometry, sf::st_geometry(sites)[rep(1:3, each = 2)])
   }
 })

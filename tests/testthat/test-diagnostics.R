@@ -18,10 +18,10 @@ test_that("diagnostics count assessment coverage and buffer exclusions", {
 test_that("buffers use assessment centres and preserve existing exclusions", {
   x <- tibble::tibble(time = 1:10)
   f <- custom_folds(x, list(3L), list(c(3L, 8L)))
-  b <- buffer_folds(f, index = time, temporal = temporal_window(time_span(1)))
+  b <- buffer_folds(f, x, index = time, temporal = temporal_window(time_span(1)))
   expect_equal(omission_indices(b), list(c(2:4, 8L)))
   expect_equal(assessment_indices(b), list(3L))
-  expect_error(buffer_folds(f), "at least one")
+  expect_error(buffer_folds(f, x), "at least one")
 })
 
 test_that("plotting returns valid temporal and spatial plots", {
@@ -29,11 +29,13 @@ test_that("plotting returns valid temporal and spatial plots", {
   f <- loo_folds(tibble::tibble(time = 1:5))
   expect_s3_class(ggplot2::autoplot(f, folds = c(1, 2)), "ggplot")
   expect_error(ggplot2::autoplot(f, folds = integer()), "at least one")
-  g <- temporal_folds(tibble::tibble(time = 1:6), time_span(2), index = time)
-  expect_silent(ggplot2::ggplot_build(ggplot2::autoplot(g)))
+  data <- tibble::tibble(time = seq(10L, 60L, by = 10L))
+  g <- temporal_folds(data, time_span(2), index = time)
+  expect_equal(ggplot2::layer_data(ggplot2::autoplot(g))$x, 1:6)
+  expect_equal(ggplot2::layer_data(ggplot2::autoplot(g, data = data))$x, data$time)
   skip_if_not_installed("sf")
   spatial <- sf::st_as_sf(data.frame(x = 1:4, y = 0), coords = c("x", "y"), crs = 32632)
-  p <- ggplot2::autoplot(loo_folds(spatial))
+  p <- ggplot2::autoplot(loo_folds(spatial), data = spatial)
   expect_silent(ggplot2::ggplot_build(p))
 })
 
@@ -45,7 +47,7 @@ test_that("spatial plots use the active geometry column", {
   )
   spatial$alternate <- sf::st_geometry(spatial) + c(100, 0)
   spatial <- spatial[c("id", "alternate", "geometry")]
-  plot <- ggplot2::autoplot(loo_folds(spatial))
+  plot <- ggplot2::autoplot(loo_folds(spatial), data = spatial)
   expect_identical(attr(plot$data, "sf_column", exact = TRUE), "geometry")
   expect_identical(sf::st_geometry(plot$data), sf::st_geometry(spatial))
 })

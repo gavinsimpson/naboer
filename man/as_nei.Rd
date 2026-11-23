@@ -26,8 +26,9 @@ per observation.}
 \item{max_bytes}{Maximum estimated packed output size in bytes; defaults to
 option \code{naboer.max_bytes}, or 1 GiB. Use \code{Inf} to disable the memory guard.}
 
-\item{data}{Optional data used for alignment checking. Supply unchanged
-canonical data, or data containing the original unique identifier column.}
+\item{data}{Optional modelling data for a row-count check. Supply the data
+in the observation order used to build the folds. For cubbles, use the
+unfolded observations returned by \code{\link[=fold_data]{fold_data()}}.}
 }
 \value{
 A plain list with \code{a}, \code{ma}, \code{d}, \code{md}, and optional settings.

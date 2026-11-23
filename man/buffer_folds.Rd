@@ -6,6 +6,7 @@
 \usage{
 buffer_folds(
   x,
+  data,
   spatial = NULL,
   temporal = NULL,
   phylogenetic = NULL,
@@ -17,6 +18,9 @@ buffer_folds(
 }
 \arguments{
 \item{x}{A \code{naboer_folds} object.}
+
+\item{data}{The observation data used to construct the folds, in their
+original row order.}
 
 \item{spatial}{A \code{\link[=spatial_window]{spatial_window()}} specification.}
 

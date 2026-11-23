@@ -241,7 +241,7 @@ test_that("period indexes use period-start dates and preserve source metadata", 
     folded <- temporal_folds(x, span)
     reference <- temporal_folds(tibble::tibble(time = as.Date(index)), span, index = time)
     expect_equal(assessment_indices(folded), assessment_indices(reference))
-    expect_equal(fold_data(folded)$time, index)
+    expect_equal(fold_data(folded, x)$time, index)
     forecast <- forecast_folds(x, horizon = span, origins = index[3])
     expect_equal(assessment_indices(forecast)[[1]], 4L)
   }

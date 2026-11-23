@@ -13,6 +13,8 @@
 #'
 #' @param x A `naboer_folds` object for `as_rset()`, or an rsample `rset` for
 #'   `from_rset()`.
+#' @param data The observation data used to construct the folds, in their
+#'   original row order.
 #' @param id Optional unique observation identifier column, using tidy selection.
 #' @param key,index,.by Tidy selections of series keys, temporal index and
 #'   independent domains. Omitted selections restore metadata saved by
@@ -24,9 +26,10 @@
 #' @return `as_rset()` returns an rsample manual rset; `from_rset()` returns
 #'   a `naboer_folds` object.
 #' @export
-as_rset <- function(x, max_bytes = getOption("naboer.max_bytes", 1024^3)) {
+as_rset <- function(x, data, max_bytes = getOption("naboer.max_bytes", 1024^3)) {
   need_package("rsample")
   validate_folds(x)
+  if (missing(data)) abort_naboer("Supply the original observations in `data`.", "data")
   if (!is.numeric(max_bytes) || length(max_bytes) != 1L || is.na(max_bytes) ||
     max_bytes < 0) {
     abort_naboer("`max_bytes` must be nonnegative or Inf.")
@@ -45,7 +48,7 @@ as_rset <- function(x, max_bytes = getOption("naboer.max_bytes", 1024^3)) {
       "raise the limit."
     ), bytes / 1024^2), "memory")
   }
-  data <- fold_data(x)
+  data <- fold_data(x, data)
   analysis <- analysis_indices(x)
   assessment <- assessment_indices(x)
   splits <- lapply(seq_along(assessment), function(i) {
@@ -88,9 +91,7 @@ from_rset <- function(x, id = NULL, key = NULL, index = NULL, .by = NULL) {
     }
     for (field in fields) {
       if (rlang::quo_is_null(selections[[field]])) {
-        selections[[field]] <- rlang::new_quosure(
-          rlang::expr(tidyselect::all_of(!!columns[[field]])), rlang::base_env()
-        )
+        selections[[field]] <- stored_selection(columns[[field]])
       }
     }
   }

@@ -67,9 +67,8 @@ Check a fold in the middle of the year. To score 2 July, the fit leaves out
 12 June to 22 July inclusive.
 
 ```{r inspect-soil-fold}
-soil_data <- fold_data(soil_folds)
-july_fold <- match(as.Date("2019-07-02"), soil_data$date)
-range(soil_data$date[omission_indices(soil_folds, july_fold)[[1]]])
+july_fold <- match(as.Date("2019-07-02"), soil$date)
+range(soil$date[omission_indices(soil_folds, july_fold)[[1]]])
 ```
 
 Fit the same smooth twice with mgcv. With `nei` omitted, `method = "NCV"`
@@ -79,12 +78,12 @@ data and basis, so the change is in how the smoothing parameter is selected.
 
 ```{r soil-fits}
 soil_loo <- gam(vwc ~ s(day, k = 20),
-  data = soil_data, method = "NCV", na.action = na.fail
+  data = soil, method = "NCV", na.action = na.fail
 )
 
-soil_nei <- as_nei(soil_folds, data = soil_data)
+soil_nei <- as_nei(soil_folds)
 soil_ncv <- gam(vwc ~ s(day, k = 20),
-  data = soil_data, method = "NCV", nei = soil_nei, na.action = na.fail
+  data = soil, method = "NCV", nei = soil_nei, na.action = na.fail
 )
 ```
 
@@ -104,10 +103,10 @@ the observed dates. Both final models use all 365 observations.
 
 ```{r soil-curve-data, eval=have_gratia}
 soil_curves <- rbind(
-  transform(add_fitted(soil_data, soil_loo, value = "fitted_vwc"),
+  transform(add_fitted(soil, soil_loo, value = "fitted_vwc"),
     scheme = "Leave-one-out"
   ),
-  transform(add_fitted(soil_data, soil_ncv, value = "fitted_vwc"),
+  transform(add_fitted(soil, soil_ncv, value = "fitted_vwc"),
     scheme = "Temporal neighbourhoods"
   )
 )
@@ -117,7 +116,7 @@ Overlay the two fitted curves on the observations in grey. The neighbourhood
 fit follows the broader changes in moisture over the year.
 
 ```{r soil-curves, eval=have_gratia, fig.width=7, fig.height=4, dev.args=list(bg="white"), fig.alt="Daily soil moisture at Balruddery in grey and two fitted curves. The temporal neighbourhood fit is smoother than the leave-one-out fit."}
-ggplot(soil_data, aes(x = date)) +
+ggplot(soil, aes(x = date)) +
   geom_line(aes(y = vwc), colour = "grey60", linewidth = 0.4) +
   geom_line(
     data = soil_curves,
@@ -181,7 +180,7 @@ Inspect the rows omitted in fold 3. The target is 3 January at site a, so
 the model leaves out 1 to 5 January at that site and scores only 3 January.
 
 ```{r inspect-neighbourhood}
-fold_data(f)[omission_indices(f, 3)[[1]], ]
+x[omission_indices(f, 3)[[1]], ]
 ```
 
 ### Choose how to measure a span
@@ -260,9 +259,8 @@ Inspect the first fold. Both sites contribute training records from 1 to
 6 and 7 January are scored.
 
 ```{r inspect-first-forecast}
-forecast_data <- fold_data(forecast)
-forecast_data[analysis_indices(forecast, 1)[[1]], ]
-forecast_data[assessment_indices(forecast, 1)[[1]], ]
+x[analysis_indices(forecast, 1)[[1]], ]
+x[assessment_indices(forecast, 1)[[1]], ]
 ```
 
 Training starts with the first observation by default. For a fixed training
@@ -319,7 +317,6 @@ nottingham_folds <- forecast_folds(nottingham,
   index = date, origins = cutoffs,
   horizon = time_span(1, "years", type = "calendar")
 )
-nottingham_data <- fold_data(nottingham_folds)
 training_rows <- analysis_indices(nottingham_folds)
 assessment_rows <- assessment_indices(nottingham_folds)
 ```
@@ -346,8 +343,8 @@ summarises forecast errors, in degrees Fahrenheit, over the following year.
 ```{r nottingham-scores}
 rmse <- vapply(seq_along(training_rows), function(i) {
   forecast_rmse(
-    nottingham_data[training_rows[[i]], ],
-    nottingham_data[assessment_rows[[i]], ]
+    nottingham[training_rows[[i]], ],
+    nottingham[assessment_rows[[i]], ]
   )
 }, numeric(1))
 tibble(origin = cutoffs, rmse_f = rmse)
@@ -373,5 +370,5 @@ temporal_folds(series, time_span(4, "days"), within = "key")
 ```
 
 For tsibble indices that represent weeks, months or quarters, temporal
-calculations use the first date of each period. `fold_data()` keeps the
-original index class.
+calculations use the first date of each period. The supplied tsibble keeps
+its original index class.

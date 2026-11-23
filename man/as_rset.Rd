@@ -5,13 +5,16 @@
 \alias{from_rset}
 \title{Convert between naboer folds and rsample resamples}
 \usage{
-as_rset(x, max_bytes = getOption("naboer.max_bytes", 1024^3))
+as_rset(x, data, max_bytes = getOption("naboer.max_bytes", 1024^3))
 
 from_rset(x, id = NULL, key = NULL, index = NULL, .by = NULL)
 }
 \arguments{
 \item{x}{A \code{naboer_folds} object for \code{as_rset()}, or an rsample \code{rset} for
 \code{from_rset()}.}
+
+\item{data}{The observation data used to construct the folds, in their
+original row order.}
 
 \item{max_bytes}{Maximum estimated storage for analysis and assessment indices
 exported to rsample, in bytes. Defaults to option \code{naboer.max_bytes}, or

@@ -3,6 +3,7 @@
 #' Each observation is assessed once, omitting its dependence neighbourhood.
 #' Multiple windows require explicit union or intersection. Series keys identify
 #' observations; `.by` prevents dependence across independent domains.
+#' `neighborhoods()` is the US English spelling of this function.
 #' @param data A data frame, tibble, sf object, tsibble or cubble.
 #' @param spatial A [spatial_window()] specification.
 #' @param temporal A [temporal_window()] specification.
@@ -44,11 +45,15 @@ neighbourhoods <- function(data, spatial = NULL, temporal = NULL, phylogenetic =
     ctx, point_index(ctx$n), omit,
     list(
       strategy = "neighbourhood", spatial = spatial, temporal = temporal,
-      phylogenetic = phylogenetic, combine = combine, within = within,
+      combine = combine, within = within,
       spatial_engine = if (!is.null(spatial)) attr(parts$spatial, "spatial_engine")
     )
   )
 }
+
+#' @rdname neighbourhoods
+#' @export
+neighborhoods <- neighbourhoods
 
 #' Add dependence buffers around fold assessment observations
 #'
@@ -56,17 +61,16 @@ neighbourhoods <- function(data, spatial = NULL, temporal = NULL, phylogenetic =
 #' centres; buffers do not recursively expand from other omitted observations.
 #' @param x A `naboer_folds` object.
 #' @inheritParams neighbourhoods
+#' @param data The observation data used to construct the folds, in their
+#'   original row order.
 #' @param key,index Optional tidy selections overriding the stored series key
 #'   and temporal index for buffer construction.
 #' @return A `naboer_folds` object with expanded omission membership.
 #' @export
-buffer_folds <- function(x, spatial = NULL, temporal = NULL, phylogenetic = NULL,
+buffer_folds <- function(x, data, spatial = NULL, temporal = NULL, phylogenetic = NULL,
                          combine = NULL, key = NULL, index = NULL, within = NULL) {
   validate_folds(x)
-  ctx <- x$ctx
-  if (!rlang::quo_is_null(rlang::enquo(key))) ctx$key <- select_cols(ctx$data, rlang::enquo(key), "key")
-  if (!rlang::quo_is_null(rlang::enquo(index))) ctx$index <- select_cols(ctx$data, rlang::enquo(index), "index")
-  validate_context_columns(ctx)
+  ctx <- prepare_fold_context(x, data, key = rlang::enquo(key), index = rlang::enquo(index))
   count <- sum(!vapply(list(spatial, temporal, phylogenetic), is.null, logical(1)))
   if (!count) abort_naboer("Supply at least one buffer window.")
   if (count > 1L && is.null(combine)) abort_naboer("Specify how multiple buffer windows combine.")
@@ -85,6 +89,11 @@ buffer_folds <- function(x, spatial = NULL, temporal = NULL, phylogenetic = NULL
     sort(unique(c(index_get(x$omission, i), additions)))
   })
   spec <- x$spec
-  spec$buffer <- list(spatial = spatial, temporal = temporal, phylogenetic = phylogenetic, combine = combine)
+  # Older objects may contain caller-owned regions or a taxon quosure.
+  spec[c("regions", "phylogenetic", "clades")] <- NULL
+  if (!is.null(x$ctx$data) && !is.null(spec$blocks)) {
+    spec$blocks <- as.integer(vctrs::vec_group_id(spec$blocks))
+  }
+  spec$buffer <- list(spatial = spatial, temporal = temporal, combine = combine)
   new_folds(ctx, x$assessment, sets, spec)
 }

@@ -123,12 +123,12 @@ test_that("temporal-phylogenetic combinations and buffers follow set semantics",
   )
   expect_equal(omission_indices(union, 2), list(1:3))
   expect_equal(omission_indices(intersection, 2), list(1:2))
-  buffered <- buffer_folds(loo_folds(x),
+  buffered <- buffer_folds(loo_folds(x), x,
     temporal = time, phylogenetic = phylo,
     index = time, combine = "union"
   )
   expect_equal(omission_indices(buffered), omission_indices(union))
-  expect_error(buffer_folds(loo_folds(x),
+  expect_error(buffer_folds(loo_folds(x), x,
     temporal = time, phylogenetic = phylo,
     index = time
   ), "multiple buffer")

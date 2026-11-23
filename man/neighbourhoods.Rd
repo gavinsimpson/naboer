@@ -2,9 +2,23 @@
 % Please edit documentation in R/neighbourhoods.R
 \name{neighbourhoods}
 \alias{neighbourhoods}
+\alias{neighborhoods}
 \title{Construct focal-observation neighbourhoods}
 \usage{
 neighbourhoods(
+  data,
+  spatial = NULL,
+  temporal = NULL,
+  phylogenetic = NULL,
+  combine = NULL,
+  key = NULL,
+  index = NULL,
+  .by = NULL,
+  within = NULL,
+  id = NULL
+)
+
+neighborhoods(
   data,
   spatial = NULL,
   temporal = NULL,
@@ -42,4 +56,5 @@ A compact \code{naboer_folds} object.
 Each observation is assessed once, omitting its dependence neighbourhood.
 Multiple windows require explicit union or intersection. Series keys identify
 observations; \code{.by} prevents dependence across independent domains.
+\code{neighborhoods()} is the US English spelling of this function.
 }

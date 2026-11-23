@@ -24,22 +24,15 @@
 #'   per observation.
 #' @param max_bytes Maximum estimated packed output size in bytes; defaults to
 #'   option `naboer.max_bytes`, or 1 GiB. Use `Inf` to disable the memory guard.
-#' @param data Optional data used for alignment checking. Supply unchanged
-#'   canonical data, or data containing the original unique identifier column.
+#' @param data Optional modelling data for a row-count check. Supply the data
+#'   in the observation order used to build the folds. For cubbles, use the
+#'   unfolded observations returned by [fold_data()].
 #' @return A plain list with `a`, `ma`, `d`, `md`, and optional settings.
 #' @export
 as_nei <- function(x, sample = NULL, jackknife = NULL,
                    max_bytes = getOption("naboer.max_bytes", 1024^3), data = NULL) {
   validate_folds(x)
-  if (!is.null(data)) {
-    if (!is.data.frame(data) || nrow(data) != x$ctx$n) abort_naboer("Data rows do not match fold observations.", "alignment")
-    aligned <- if (length(x$ctx$id)) {
-      identical(data[[x$ctx$id]], x$ctx$data[[x$ctx$id]])
-    } else {
-      identical(tibble::as_tibble(data), x$ctx$data)
-    }
-    if (!aligned) abort_naboer("Data order or identifiers do not match the fold data. Rebuild folds after changing observations.", "alignment")
-  }
+  if (!is.null(data)) check_fold_row_count(x, data)
   m <- index_nfold(x$assessment)
   check_nei_fold_count(m)
   version <- nei_mgcv_version()

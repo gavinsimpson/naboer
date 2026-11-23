@@ -17,7 +17,7 @@ test_that("public temporal neighbourhoods require explicit series semantics", {
   expect_equal(omission_indices(by_series, 1)[[1]], 1:2)
   expect_equal(omission_indices(by_domain, 1)[[1]], c(1L, 2L, 4L, 5L))
   expect_equal(assessment_indices(by_domain), as.list(1:12))
-  expect_equal(fold_data(by_domain), data)
+  expect_equal(fold_data(by_domain, data), data)
 })
 
 test_that("public phylogenetic neighbourhoods and buffers respect taxon domains", {
@@ -31,7 +31,7 @@ test_that("public phylogenetic neighbourhoods and buffers respect taxon domains"
   folds <- neighbourhoods(data, phylogenetic = window, .by = network)
   expect_equal(omission_indices(folds), list(1:2, 1:2, 3:4, 3:4, 5:6, 5:6, 7:8, 7:8))
   initial <- custom_folds(data, list(1L), list(c(1L, 7L)), .by = network)
-  buffered <- buffer_folds(initial, phylogenetic = window)
+  buffered <- buffer_folds(initial, data, phylogenetic = window)
   expect_equal(assessment_indices(buffered), list(1L))
   expect_equal(omission_indices(buffered), list(c(1L, 2L, 7L)))
   expect_equal(omission_indices(initial), list(c(1L, 7L)))
@@ -40,7 +40,7 @@ test_that("public phylogenetic neighbourhoods and buffers respect taxon domains"
 test_that("buffer centres are assessment observations and existing exclusions persist", {
   data <- tibble::tibble(time = 0:8, site = rep("a", 9))
   initial <- custom_folds(data, list(3L), list(c(3L, 7L)))
-  buffered <- buffer_folds(initial,
+  buffered <- buffer_folds(initial, data,
     temporal = temporal_window(time_span(1)),
     key = site, index = time, within = "key"
   )
@@ -55,7 +55,7 @@ test_that("buffer metadata overrides receive constructor validation", {
   data <- tibble::tibble(time = 1:6, site = c("a", NA, "a", "b", "b", "b"))
   initial <- loo_folds(data)
   expect_error(
-    buffer_folds(initial,
+    buffer_folds(initial, data,
       temporal = temporal_window(time_span(1)),
       key = site, index = time, within = "key"
     ),
@@ -63,7 +63,7 @@ test_that("buffer metadata overrides receive constructor validation", {
     class = "naboer_error_missing"
   )
   expect_error(
-    buffer_folds(initial,
+    buffer_folds(initial, data,
       temporal = temporal_window(time_span(1)),
       index = c(time, site)
     ),
@@ -101,11 +101,11 @@ test_that("combined spatial and temporal neighbourhoods implement set operations
   expect_equal(intersection$spec$within, "domain")
   expect_equal(intersection$spec$spatial_engine, "GEOS")
   initial <- custom_folds(data, list(2L), list(c(2L, 4L)), .by = network)
-  both <- buffer_folds(initial,
+  both <- buffer_folds(initial, data,
     spatial = spatial, temporal = temporal,
     combine = "intersection", key = site, index = time
   )
-  either <- buffer_folds(initial,
+  either <- buffer_folds(initial, data,
     spatial = spatial, temporal = temporal,
     combine = "union", key = site, index = time
   )
@@ -113,7 +113,7 @@ test_that("combined spatial and temporal neighbourhoods implement set operations
   expect_equal(omission_indices(either), list(1:4))
   # Only the first independent domain is omitted; the second remains analysis.
   expect_equal(analysis_indices(either), list(5:8))
-  space_only <- buffer_folds(initial, spatial = spatial)
+  space_only <- buffer_folds(initial, data, spatial = spatial)
   expect_equal(omission_indices(space_only), list(c(1L, 2L, 4L)))
 })
 
@@ -145,7 +145,7 @@ test_that("all three dependence dimensions combine without losing exclusions", {
   expect_equal(omission_indices(intersection, 3)[[1]], 3L)
   expect_equal(omission_indices(union, 3)[[1]], 2:4)
   initial <- custom_folds(data, list(3L), list(c(3L, 8L)), .by = network)
-  buffered <- buffer_folds(initial,
+  buffered <- buffer_folds(initial, data,
     spatial = spatial, temporal = temporal,
     phylogenetic = phylogenetic, combine = "union", index = time
   )
@@ -184,17 +184,17 @@ test_that("public window and combination errors give useful messages", {
   data <- tibble::tibble(time = 1:6)
   window <- temporal_window(time_span(1))
   expect_error(neighbourhoods(data), "at least one")
-  expect_error(buffer_folds(loo_folds(data)), "at least one")
+  expect_error(buffer_folds(loo_folds(data), data), "at least one")
   expect_error(neighbourhoods(data, temporal = window, spatial = 1, index = time), "combine")
-  expect_error(buffer_folds(loo_folds(data), temporal = window, spatial = 1), "combine")
+  expect_error(buffer_folds(loo_folds(data), data, temporal = window, spatial = 1), "combine")
   expect_error(neighbourhoods(data, temporal = window, combine = "invalid", index = time), "arg")
-  expect_error(buffer_folds(loo_folds(data), temporal = window, combine = "invalid", index = time), "arg")
+  expect_error(buffer_folds(loo_folds(data), data, temporal = window, combine = "invalid", index = time), "arg")
   expect_error(neighbourhoods(data, temporal = 1, index = time), "temporal_window")
   expect_error(neighbourhoods(data, spatial = 1), "spatial_window")
   expect_error(neighbourhoods(data, phylogenetic = 1), "phylogenetic_window")
-  expect_error(buffer_folds(loo_folds(data), temporal = 1, index = time), "temporal_window")
-  expect_error(buffer_folds(loo_folds(data), spatial = 1), "spatial_window")
-  expect_error(buffer_folds(loo_folds(data), phylogenetic = 1), "phylogenetic_window")
+  expect_error(buffer_folds(loo_folds(data), data, temporal = 1, index = time), "temporal_window")
+  expect_error(buffer_folds(loo_folds(data), data, spatial = 1), "spatial_window")
+  expect_error(buffer_folds(loo_folds(data), data, phylogenetic = 1), "phylogenetic_window")
 })
 
 test_that("forecast validation keeps compressed future exclusions", {
