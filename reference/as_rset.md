@@ -14,7 +14,7 @@ rsets can supply these selections directly.
 ## Usage
 
 ``` r
-as_rset(x, max_bytes = getOption("naboer.max_bytes", 1024^3))
+as_rset(x, data, max_bytes = getOption("naboer.max_bytes", 1024^3))
 
 from_rset(x, id = NULL, key = NULL, index = NULL, .by = NULL)
 ```
@@ -25,6 +25,11 @@ from_rset(x, id = NULL, key = NULL, index = NULL, .by = NULL)
 
   A `naboer_folds` object for `as_rset()`, or an rsample `rset` for
   `from_rset()`.
+
+- data:
+
+  The observation data used to construct the folds, in their original
+  row order.
 
 - max_bytes:
 

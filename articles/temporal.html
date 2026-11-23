@@ -122,9 +122,8 @@ time-series example</a>.</p>
 <p>Check a fold in the middle of the year. To score 2 July, the fit
 leaves out 12 June to 22 July inclusive.</p>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">soil_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">soil_folds</span><span class="op">)</span></span>
-<span><span class="va">july_fold</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">"2019-07-02"</span><span class="op">)</span>, <span class="va">soil_data</span><span class="op">$</span><span class="va">date</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">soil_data</span><span class="op">$</span><span class="va">date</span><span class="op">[</span><span class="fu"><a href="../reference/assessment_indices.html">omission_indices</a></span><span class="op">(</span><span class="va">soil_folds</span>, <span class="va">july_fold</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">july_fold</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/match.html" class="external-link">match</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">"2019-07-02"</span><span class="op">)</span>, <span class="va">soil</span><span class="op">$</span><span class="va">date</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">soil</span><span class="op">$</span><span class="va">date</span><span class="op">[</span><span class="fu"><a href="../reference/assessment_indices.html">omission_indices</a></span><span class="op">(</span><span class="va">soil_folds</span>, <span class="va">july_fold</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "2019-06-12" "2019-07-22"</span></span></code></pre></div>
 <p>Fit the same smooth twice with mgcv. With <code>nei</code> omitted,
 <code>method = "NCV"</code> uses leave-one-out cross-validation. For the
@@ -133,12 +132,12 @@ supply that design as <code>nei</code>. Both fits use the same data and
 basis, so the change is in how the smoothing parameter is selected.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">soil_loo</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">vwc</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">day</span>, k <span class="op">=</span> <span class="fl">20</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">soil_data</span>, method <span class="op">=</span> <span class="st">"NCV"</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
+<span>  data <span class="op">=</span> <span class="va">soil</span>, method <span class="op">=</span> <span class="st">"NCV"</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="va">soil_nei</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">soil_folds</span>, data <span class="op">=</span> <span class="va">soil_data</span><span class="op">)</span></span>
+<span><span class="va">soil_nei</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">soil_folds</span><span class="op">)</span></span>
 <span><span class="va">soil_ncv</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">vwc</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">day</span>, k <span class="op">=</span> <span class="fl">20</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">soil_data</span>, method <span class="op">=</span> <span class="st">"NCV"</span>, nei <span class="op">=</span> <span class="va">soil_nei</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
+<span>  data <span class="op">=</span> <span class="va">soil</span>, method <span class="op">=</span> <span class="st">"NCV"</span>, nei <span class="op">=</span> <span class="va">soil_nei</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>Use gratia’s <code><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf()</a></code> to compare the effective degrees of
 freedom (EDF) of the smooth in each fit. Higher EDF allows the curve to
@@ -155,10 +154,10 @@ moisture values to the observed dates. Both final models use all 365
 observations.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">soil_curves</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span></span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/transform.html" class="external-link">transform</a></span><span class="op">(</span><span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted</a></span><span class="op">(</span><span class="va">soil_data</span>, <span class="va">soil_loo</span>, value <span class="op">=</span> <span class="st">"fitted_vwc"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/transform.html" class="external-link">transform</a></span><span class="op">(</span><span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted</a></span><span class="op">(</span><span class="va">soil</span>, <span class="va">soil_loo</span>, value <span class="op">=</span> <span class="st">"fitted_vwc"</span><span class="op">)</span>,</span>
 <span>    scheme <span class="op">=</span> <span class="st">"Leave-one-out"</span></span>
 <span>  <span class="op">)</span>,</span>
-<span>  <span class="fu"><a href="https://rdrr.io/r/base/transform.html" class="external-link">transform</a></span><span class="op">(</span><span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted</a></span><span class="op">(</span><span class="va">soil_data</span>, <span class="va">soil_ncv</span>, value <span class="op">=</span> <span class="st">"fitted_vwc"</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/transform.html" class="external-link">transform</a></span><span class="op">(</span><span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted</a></span><span class="op">(</span><span class="va">soil</span>, <span class="va">soil_ncv</span>, value <span class="op">=</span> <span class="st">"fitted_vwc"</span><span class="op">)</span>,</span>
 <span>    scheme <span class="op">=</span> <span class="st">"Temporal neighbourhoods"</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">)</span></span></code></pre></div>
@@ -166,7 +165,7 @@ observations.</p>
 neighbourhood fit follows the broader changes in moisture over the
 year.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">soil_data</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">date</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
+<code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">soil</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">date</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_path.html" class="external-link">geom_line</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>y <span class="op">=</span> <span class="va">vwc</span><span class="op">)</span>, colour <span class="op">=</span> <span class="st">"grey60"</span>, linewidth <span class="op">=</span> <span class="fl">0.4</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_path.html" class="external-link">geom_line</a></span><span class="op">(</span></span>
 <span>    data <span class="op">=</span> <span class="va">soil_curves</span>,</span>
@@ -230,7 +229,7 @@ domain.</p>
 a, so the model leaves out 1 to 5 January at that site and scores only 3
 January.</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">f</span><span class="op">)</span><span class="op">[</span><span class="fu"><a href="../reference/assessment_indices.html">omission_indices</a></span><span class="op">(</span><span class="va">f</span>, <span class="fl">3</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="op">]</span></span>
+<code class="sourceCode R"><span><span class="va">x</span><span class="op">[</span><span class="fu"><a href="../reference/assessment_indices.html">omission_indices</a></span><span class="op">(</span><span class="va">f</span>, <span class="fl">3</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="op">]</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 5 × 2</span></span></span>
 <span><span class="co">#&gt;   site  date      </span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> <span style="color: #949494; font-style: italic;">&lt;date&gt;</span>    </span></span>
@@ -325,8 +324,7 @@ records enter the fit.</p>
 to 4 January. The records on 5 January form the gap, and the predictions
 for 6 and 7 January are scored.</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">forecast_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">forecast</span><span class="op">)</span></span>
-<span><span class="va">forecast_data</span><span class="op">[</span><span class="fu"><a href="../reference/assessment_indices.html">analysis_indices</a></span><span class="op">(</span><span class="va">forecast</span>, <span class="fl">1</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="op">]</span></span>
+<code class="sourceCode R"><span><span class="va">x</span><span class="op">[</span><span class="fu"><a href="../reference/assessment_indices.html">analysis_indices</a></span><span class="op">(</span><span class="va">forecast</span>, <span class="fl">1</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="op">]</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 8 × 2</span></span></span>
 <span><span class="co">#&gt;   site  date      </span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> <span style="color: #949494; font-style: italic;">&lt;date&gt;</span>    </span></span>
@@ -338,7 +336,7 @@ for 6 and 7 January are scored.</p>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> b     2024-01-02</span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">7</span> b     2024-01-03</span></span>
 <span><span class="co">#&gt; <span style="color: #BCBCBC;">8</span> b     2024-01-04</span></span>
-<span><span class="va">forecast_data</span><span class="op">[</span><span class="fu"><a href="../reference/assessment_indices.html">assessment_indices</a></span><span class="op">(</span><span class="va">forecast</span>, <span class="fl">1</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="op">]</span></span>
+<span><span class="va">x</span><span class="op">[</span><span class="fu"><a href="../reference/assessment_indices.html">assessment_indices</a></span><span class="op">(</span><span class="va">forecast</span>, <span class="fl">1</span><span class="op">)</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span>, <span class="op">]</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 4 × 2</span></span></span>
 <span><span class="co">#&gt;   site  date      </span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span> <span style="color: #949494; font-style: italic;">&lt;date&gt;</span>    </span></span>
@@ -400,7 +398,6 @@ scoring each model.</p>
 <span>  index <span class="op">=</span> <span class="va">date</span>, origins <span class="op">=</span> <span class="va">cutoffs</span>,</span>
 <span>  horizon <span class="op">=</span> <span class="fu"><a href="../reference/time_span.html">time_span</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"years"</span>, type <span class="op">=</span> <span class="st">"calendar"</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
-<span><span class="va">nottingham_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">nottingham_folds</span><span class="op">)</span></span>
 <span><span class="va">training_rows</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assessment_indices.html">analysis_indices</a></span><span class="op">(</span><span class="va">nottingham_folds</span><span class="op">)</span></span>
 <span><span class="va">assessment_rows</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assessment_indices.html">assessment_indices</a></span><span class="op">(</span><span class="va">nottingham_folds</span><span class="op">)</span></span></code></pre></div>
 <p>Fit a seasonal GAM using only the training rows. The month of the
@@ -423,8 +420,8 @@ following year.</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">rmse</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">vapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">training_rows</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">i</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu">forecast_rmse</span><span class="op">(</span></span>
-<span>    <span class="va">nottingham_data</span><span class="op">[</span><span class="va">training_rows</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span>, <span class="op">]</span>,</span>
-<span>    <span class="va">nottingham_data</span><span class="op">[</span><span class="va">assessment_rows</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span>, <span class="op">]</span></span>
+<span>    <span class="va">nottingham</span><span class="op">[</span><span class="va">training_rows</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span>, <span class="op">]</span>,</span>
+<span>    <span class="va">nottingham</span><span class="op">[</span><span class="va">assessment_rows</span><span class="op">[[</span><span class="va">i</span><span class="op">]</span><span class="op">]</span>, <span class="op">]</span></span>
 <span>  <span class="op">)</span></span>
 <span><span class="op">}</span>, <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://tibble.tidyverse.org/reference/tibble.html" class="external-link">tibble</a></span><span class="op">(</span>origin <span class="op">=</span> <span class="va">cutoffs</span>, rmse_f <span class="op">=</span> <span class="va">rmse</span><span class="op">)</span></span>
@@ -457,8 +454,8 @@ separately for each site.</p>
 <span><span class="co">#&gt; &lt;naboer_folds: temporal&gt;</span></span>
 <span><span class="co">#&gt; 24 observations; 6 folds</span></span></code></pre></div>
 <p>For tsibble indices that represent weeks, months or quarters,
-temporal calculations use the first date of each period.
-<code><a href="../reference/fold_data.html">fold_data()</a></code> keeps the original index class.</p>
+temporal calculations use the first date of each period. The supplied
+tsibble keeps its original index class.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

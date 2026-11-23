@@ -3,6 +3,7 @@
 ## Neighbourhoods and windows
 
 - [`neighbourhoods()`](https://gavinsimpson.github.io/naboer/reference/neighbourhoods.md)
+  [`neighborhoods()`](https://gavinsimpson.github.io/naboer/reference/neighbourhoods.md)
   : Construct focal-observation neighbourhoods
 - [`spatial_window()`](https://gavinsimpson.github.io/naboer/reference/spatial_window.md)
   : Specify a spatial neighbourhood
@@ -41,7 +42,7 @@
 ## Inspect and export
 
 - [`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md)
-  : Retrieve the canonical observation data
+  : Prepare observations in the order used by a fold object
 - [`assessment_indices()`](https://gavinsimpson.github.io/naboer/reference/assessment_indices.md)
   [`omission_indices()`](https://gavinsimpson.github.io/naboer/reference/assessment_indices.md)
   [`analysis_indices()`](https://gavinsimpson.github.io/naboer/reference/assessment_indices.md)

@@ -62,9 +62,8 @@ out 12 June to 22 July inclusive.
 
 ``` r
 
-soil_data <- fold_data(soil_folds)
-july_fold <- match(as.Date("2019-07-02"), soil_data$date)
-range(soil_data$date[omission_indices(soil_folds, july_fold)[[1]]])
+july_fold <- match(as.Date("2019-07-02"), soil$date)
+range(soil$date[omission_indices(soil_folds, july_fold)[[1]]])
 #> [1] "2019-06-12" "2019-07-22"
 ```
 
@@ -78,12 +77,12 @@ so the change is in how the smoothing parameter is selected.
 ``` r
 
 soil_loo <- gam(vwc ~ s(day, k = 20),
-  data = soil_data, method = "NCV", na.action = na.fail
+  data = soil, method = "NCV", na.action = na.fail
 )
 
-soil_nei <- as_nei(soil_folds, data = soil_data)
+soil_nei <- as_nei(soil_folds)
 soil_ncv <- gam(vwc ~ s(day, k = 20),
-  data = soil_data, method = "NCV", nei = soil_nei, na.action = na.fail
+  data = soil, method = "NCV", nei = soil_nei, na.action = na.fail
 )
 ```
 
@@ -111,10 +110,10 @@ final models use all 365 observations.
 ``` r
 
 soil_curves <- rbind(
-  transform(add_fitted(soil_data, soil_loo, value = "fitted_vwc"),
+  transform(add_fitted(soil, soil_loo, value = "fitted_vwc"),
     scheme = "Leave-one-out"
   ),
-  transform(add_fitted(soil_data, soil_ncv, value = "fitted_vwc"),
+  transform(add_fitted(soil, soil_ncv, value = "fitted_vwc"),
     scheme = "Temporal neighbourhoods"
   )
 )
@@ -125,7 +124,7 @@ neighbourhood fit follows the broader changes in moisture over the year.
 
 ``` r
 
-ggplot(soil_data, aes(x = date)) +
+ggplot(soil, aes(x = date)) +
   geom_line(aes(y = vwc), colour = "grey60", linewidth = 0.4) +
   geom_line(
     data = soil_curves,
@@ -201,7 +200,7 @@ January.
 
 ``` r
 
-fold_data(f)[omission_indices(f, 3)[[1]], ]
+x[omission_indices(f, 3)[[1]], ]
 #> # A tibble: 5 × 2
 #>   site  date      
 #>   <chr> <date>    
@@ -302,8 +301,7 @@ for 6 and 7 January are scored.
 
 ``` r
 
-forecast_data <- fold_data(forecast)
-forecast_data[analysis_indices(forecast, 1)[[1]], ]
+x[analysis_indices(forecast, 1)[[1]], ]
 #> # A tibble: 8 × 2
 #>   site  date      
 #>   <chr> <date>    
@@ -315,7 +313,7 @@ forecast_data[analysis_indices(forecast, 1)[[1]], ]
 #> 6 b     2024-01-02
 #> 7 b     2024-01-03
 #> 8 b     2024-01-04
-forecast_data[assessment_indices(forecast, 1)[[1]], ]
+x[assessment_indices(forecast, 1)[[1]], ]
 #> # A tibble: 4 × 2
 #>   site  date      
 #>   <chr> <date>    
@@ -385,7 +383,6 @@ nottingham_folds <- forecast_folds(nottingham,
   index = date, origins = cutoffs,
   horizon = time_span(1, "years", type = "calendar")
 )
-nottingham_data <- fold_data(nottingham_folds)
 training_rows <- analysis_indices(nottingham_folds)
 assessment_rows <- assessment_indices(nottingham_folds)
 ```
@@ -415,8 +412,8 @@ following year.
 
 rmse <- vapply(seq_along(training_rows), function(i) {
   forecast_rmse(
-    nottingham_data[training_rows[[i]], ],
-    nottingham_data[assessment_rows[[i]], ]
+    nottingham[training_rows[[i]], ],
+    nottingham[assessment_rows[[i]], ]
   )
 }, numeric(1))
 tibble(origin = cutoffs, rmse_f = rmse)
@@ -452,6 +449,5 @@ temporal_folds(series, time_span(4, "days"), within = "key")
 ```
 
 For tsibble indices that represent weeks, months or quarters, temporal
-calculations use the first date of each period.
-[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md)
-keeps the original index class.
+calculations use the first date of each period. The supplied tsibble
+keeps its original index class.

@@ -9,13 +9,18 @@
   export complete `nei` structures for mgcv NCV/QNCV, including optional
   neighbourhood sampling and covariance settings. Export requires at
   least two folds. Sampling by count for nonsingleton omissions requires
-  mgcv 1.9-5 or later.
+  mgcv 1.9-5 or later. Fold objects store row indices and design
+  metadata. Supply the observations separately for modelling, buffering,
+  plotting locations or times, and rsample export.
 - Added spatial, temporal and spatiotemporal neighbourhoods and block
   designs, asymmetric elapsed/calendar/count windows, buffers and
   rolling-origin forecasts across multiple series and independent
   domains. Shared forecasting cutoffs exclude future observations across
   dependent series; calendar shifts preserve zero-width instants and use
-  the index time zone.
+  the index time zone. Use
+  [`neighborhoods()`](https://gavinsimpson.github.io/naboer/reference/neighbourhoods.md)
+  for the US English spelling of
+  [`neighbourhoods()`](https://gavinsimpson.github.io/naboer/reference/neighbourhoods.md).
 - Added grouped and hierarchical holdouts, environmental clustering and
   strata, phylogenetic distance neighbourhoods and clade/cluster
   holdouts, and faithful rsample import/export with preserved key/domain

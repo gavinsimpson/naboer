@@ -3,12 +3,26 @@
 Each observation is assessed once, omitting its dependence
 neighbourhood. Multiple windows require explicit union or intersection.
 Series keys identify observations; `.by` prevents dependence across
-independent domains.
+independent domains. `neighborhoods()` is the US English spelling of
+this function.
 
 ## Usage
 
 ``` r
 neighbourhoods(
+  data,
+  spatial = NULL,
+  temporal = NULL,
+  phylogenetic = NULL,
+  combine = NULL,
+  key = NULL,
+  index = NULL,
+  .by = NULL,
+  within = NULL,
+  id = NULL
+)
+
+neighborhoods(
   data,
   spatial = NULL,
   temporal = NULL,

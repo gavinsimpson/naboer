@@ -58,24 +58,20 @@ data used for fitting that fold.
 
 ``` r
 
-lake_data <- fold_data(lake_folds)
-target <- match(1925L, lake_data$year)
-lake_data$year[assessment_indices(lake_folds, folds = target)[[1]]]
+target <- match(1925L, lake$year)
+lake$year[assessment_indices(lake_folds, folds = target)[[1]]]
 #> [1] 1925
-lake_data$year[omission_indices(lake_folds, folds = target)[[1]]]
+lake$year[omission_indices(lake_folds, folds = target)[[1]]]
 #> [1] 1923 1924 1925 1926 1927
 ```
 
-The exported indices refer to rows of
-[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md).
-Pass those data to
-[`as_nei()`](https://gavinsimpson.github.io/naboer/reference/as_nei.md)
-to check the alignment and use the same data to fit the model. If you
-change the observations, rebuild the folds before fitting.
+The exported indices refer to rows of `lake`, the data used to construct
+the folds. Use that same table to fit the model. If you change the
+observations or their order, rebuild the folds before fitting.
 
 ``` r
 
-lake_nei <- as_nei(lake_folds, data = lake_data)
+lake_nei <- as_nei(lake_folds)
 ```
 
 Fit water level as a smooth function of year. Supply `nei` and
@@ -85,7 +81,7 @@ choose smoothness using the five-year windows.
 ``` r
 
 lake_ncv <- gam(level ~ s(year, k = 20),
-  data = lake_data, method = "NCV", nei = lake_nei, na.action = na.fail
+  data = lake, method = "NCV", nei = lake_nei, na.action = na.fail
 )
 ```
 
@@ -96,7 +92,7 @@ with the smoothing parameter chosen by their respective criteria.
 ``` r
 
 lake_loo <- gam(level ~ s(year, k = 20),
-  data = lake_data, method = "NCV", na.action = na.fail
+  data = lake, method = "NCV", na.action = na.fail
 )
 ```
 
@@ -124,10 +120,10 @@ to attach the fitted values to their years for plotting.
 ``` r
 
 lake_curves <- rbind(
-  transform(add_fitted(lake_data, lake_loo, value = "fitted_level"),
+  transform(add_fitted(lake, lake_loo, value = "fitted_level"),
     criterion = "Leave-one-out"
   ),
-  transform(add_fitted(lake_data, lake_ncv, value = "fitted_level"),
+  transform(add_fitted(lake, lake_ncv, value = "fitted_level"),
     criterion = "Five-year window"
   )
 )
@@ -137,7 +133,7 @@ Overlay the two fitted curves on the observed water levels.
 
 ``` r
 
-ggplot(lake_data, aes(x = year)) +
+ggplot(lake, aes(x = year)) +
   geom_point(aes(y = level), colour = "grey50", size = 1.2) +
   geom_line(
     data = lake_curves,
@@ -282,12 +278,10 @@ to 6. The pair `d` and `md` works the same way for assessment. If a row
 is assessed in several folds, each assessment contributes to the
 criterion without automatic reweighting.
 
-When you pass your model data to `as_nei(data = ...)`, the alignment
-check compares the row identifiers in order if you set `id` when
-constructing the folds. Otherwise it compares all columns, including
-their order, types and values. Export for mgcv requires at least two
-folds. You can inspect a single fold in naboer or use its row indices
-for a separate refit.
+`as_nei(folds, data = model_data)` checks the row count when you supply
+modelling data. Keep the observations in the order used to build the
+folds. Export for mgcv requires at least two folds. You can inspect a
+single fold in naboer or use its row indices for a separate refit.
 
 ### Sample folds in bam
 
@@ -368,9 +362,10 @@ discrepancies in individual predictions. The script also checks whether
 refits converge and records the largest NCV prediction difference on the
 scale of the model’s linear predictor. For your own model, compare both
 scores and predictions across representative folds and smoothing
-parameters. If the approximation is unsuitable, use
+parameters. If the approximation is unsuitable, pass the folds and the
+original observations to
 [`as_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md)
-to export the folds for explicit refitting.
+for explicit refitting.
 
 ## References
 

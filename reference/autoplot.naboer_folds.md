@@ -1,16 +1,16 @@
 # Plot selected cross-validation folds
 
-Spatial geometries are used when available, otherwise the temporal index
-or observation row is plotted. Only requested folds are expanded. The
-`omitted` role denotes omission-only observations; these can be
-dependence buffers, unavailable future observations, or other
-exclusions.
+By default, plots use observation row numbers. Supplying the original
+data lets the plot use spatial geometries or the temporal index when
+available. Only requested folds are expanded. The `omitted` role denotes
+omission-only observations; these can be dependence buffers, unavailable
+future observations, or other exclusions.
 
 ## Usage
 
 ``` r
 # S3 method for class 'naboer_folds'
-autoplot(object, folds = 1L, ...)
+autoplot(object, folds = 1L, ..., data = NULL)
 ```
 
 ## Arguments
@@ -26,6 +26,11 @@ autoplot(object, folds = 1L, ...)
 - ...:
 
   Unused; must be empty.
+
+- data:
+
+  Optional observation data used to construct the folds, in their
+  original row order.
 
 ## Value
 

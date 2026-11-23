@@ -96,20 +96,18 @@ supplies the omitted and scored rows to mgcv’s
 [`gam()`](https://rdrr.io/pkg/mgcv/man/gam.html) for quadratic
 neighbourhood cross-validation (QNCV). The Gaussian model here has
 quadratic loss, so QNCV gives the same smoothing criterion as
-neighbourhood cross-validation (NCV). Use
-[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md)
-so the model data have the row order expected by the exported indices.
-The folds determine how [`gam()`](https://rdrr.io/pkg/mgcv/man/gam.html)
-chooses the smoothing parameter. The returned model uses all the rows at
-the chosen smoothness.
+neighbourhood cross-validation (NCV). Fit on `weather_points` in the
+same order used to build the folds. The folds determine how
+[`gam()`](https://rdrr.io/pkg/mgcv/man/gam.html) chooses the smoothing
+parameter. The returned model uses all the rows at the chosen
+smoothness.
 
 ``` r
 
-weather_data <- fold_data(weather_folds)
 weather_formula <- tmax ~ elev + s(east_km, north_km, k = 20)
 spatial_fit <- gam(weather_formula,
-  data = weather_data, method = "QNCV",
-  nei = as_nei(weather_folds, data = weather_data),
+  data = weather_points, method = "QNCV",
+  nei = as_nei(weather_folds),
   na.action = na.fail
 )
 ```
@@ -120,7 +118,7 @@ mgcv’s default leave-one-out criterion.
 ``` r
 
 loo_fit <- gam(weather_formula,
-  data = weather_data, method = "QNCV", na.action = na.fail
+  data = weather_points, method = "QNCV", na.action = na.fail
 )
 ```
 
@@ -159,14 +157,14 @@ scaling each coordinate to the interval from 0 to 1.
 prediction_grid <- data_slice(spatial_fit,
   east_km = evenly(east_km, n = 60),
   north_km = evenly(north_km, n = 60),
-  elev = median(weather_data$elev)
+  elev = median(weather_points$elev)
 )
 temperature <- add_fitted(prediction_grid, spatial_fit,
   value = "fitted_tmax", type = "response"
 )
 outside <- too_far(
   temperature$east_km, temperature$north_km,
-  weather_data$east_km, weather_data$north_km, dist = 0.1
+  weather_points$east_km, weather_points$north_km, dist = 0.1
 )
 temperature$fitted_tmax[outside] <- NA_real_
 ```
@@ -180,7 +178,7 @@ temperature.
 ggplot(temperature, aes(east_km, north_km)) +
   geom_raster(aes(fill = fitted_tmax)) +
   geom_contour(aes(z = fitted_tmax), colour = "white", alpha = 0.65, na.rm = TRUE) +
-  geom_point(data = weather_data, shape = 21, size = 1.6, fill = "white") +
+  geom_point(data = weather_points, shape = 21, size = 1.6, fill = "white") +
   scale_fill_viridis_c(na.value = "transparent") +
   coord_equal() +
   labs(x = "Easting (km)", y = "Northing (km)", fill = "Fitted maximum\ntemperature (°C)") +
@@ -270,7 +268,7 @@ because of this buffer.
 ``` r
 
 buffered <- buffer_folds(
-  blocks, spatial = spatial_window(set_units(100, "m"))
+  blocks, sites, spatial = spatial_window(set_units(100, "m"))
 )
 as_tibble(buffered)
 #> # A tibble: 5 × 6
@@ -374,10 +372,7 @@ will use a cubble to keep the measurements linked to their station
 locations.
 
 Keep the records from 12 to 18 January 2018 at the stations used in the
-spatial fit. The model uses `day` to track time within the week. Give
-each measurement a unique identifier so
-[`as_nei()`](https://gavinsimpson.github.io/naboer/reference/as_nei.md)
-can check the model’s row order.
+spatial fit. The model uses `day` to track time within the week.
 
 ``` r
 
@@ -390,7 +385,7 @@ daily_temperatures <- historical_tmax |>
     between(date, as.Date("2018-01-12"), as.Date("2018-01-18")),
     is.finite(tmax)
   ) |>
-  mutate(day = as.numeric(date - min(date)), record_id = row_number())
+  mutate(day = as.numeric(date - min(date)))
 ```
 
 Use each station’s `id` to link the daily measurements to the projected
@@ -413,23 +408,22 @@ measurement alone.
 
 cube_folds <- neighbourhoods(
   cube, spatial = weather_window, temporal = day_window,
-  combine = "intersection", id = record_id
+  combine = "intersection"
 )
 ```
 
-Use
+Supply the original cubble to
 [`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md)
-to get one row per station and date in the order expected by
-[`as_nei()`](https://gavinsimpson.github.io/naboer/reference/as_nei.md).
-Fit a GAM with the same elevation and spatial terms as before, plus a
-smooth for changes in temperature over the week across the region. Use
-the joint neighbourhoods to select smoothness for the spatial surface
-and the time trend.
+to get one row per station and date in the order used by the folds. Fit
+a GAM with the same elevation and spatial terms as before, plus a smooth
+for changes in temperature over the week across the region. Use the
+joint neighbourhoods to select smoothness for the spatial surface and
+the time trend.
 
 ``` r
 
-cube_data <- fold_data(cube_folds)
-cube_nei <- as_nei(cube_folds, data = cube_data)
+cube_data <- fold_data(cube_folds, cube)
+cube_nei <- as_nei(cube_folds)
 cube_fit <- gam(
   tmax ~ elev + s(east_km, north_km, k = 20) + s(day, k = 7),
   data = cube_data, method = "QNCV", nei = cube_nei, na.action = na.fail

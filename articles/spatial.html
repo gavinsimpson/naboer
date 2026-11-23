@@ -150,16 +150,15 @@ easting and northing. <code><a href="../reference/as_nei.html">as_nei()</a></cod
 scored rows to mgcv’s <code><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam()</a></code> for quadratic neighbourhood
 cross-validation (QNCV). The Gaussian model here has quadratic loss, so
 QNCV gives the same smoothing criterion as neighbourhood
-cross-validation (NCV). Use <code><a href="../reference/fold_data.html">fold_data()</a></code> so the model data
-have the row order expected by the exported indices. The folds determine
-how <code><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam()</a></code> chooses the smoothing parameter. The returned
-model uses all the rows at the chosen smoothness.</p>
+cross-validation (NCV). Fit on <code>weather_points</code> in the same
+order used to build the folds. The folds determine how
+<code><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam()</a></code> chooses the smoothing parameter. The returned model
+uses all the rows at the chosen smoothness.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">weather_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">weather_folds</span><span class="op">)</span></span>
-<span><span class="va">weather_formula</span> <span class="op">&lt;-</span> <span class="va">tmax</span> <span class="op">~</span> <span class="va">elev</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">east_km</span>, <span class="va">north_km</span>, k <span class="op">=</span> <span class="fl">20</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">weather_formula</span> <span class="op">&lt;-</span> <span class="va">tmax</span> <span class="op">~</span> <span class="va">elev</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">east_km</span>, <span class="va">north_km</span>, k <span class="op">=</span> <span class="fl">20</span><span class="op">)</span></span>
 <span><span class="va">spatial_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">weather_formula</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">weather_data</span>, method <span class="op">=</span> <span class="st">"QNCV"</span>,</span>
-<span>  nei <span class="op">=</span> <span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">weather_folds</span>, data <span class="op">=</span> <span class="va">weather_data</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">weather_points</span>, method <span class="op">=</span> <span class="st">"QNCV"</span>,</span>
+<span>  nei <span class="op">=</span> <span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">weather_folds</span><span class="op">)</span>,</span>
 <span>  na.action <span class="op">=</span> <span class="va">na.fail</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>Fit the same model with <code>method = "QNCV"</code> and leave
@@ -167,7 +166,7 @@ model uses all the rows at the chosen smoothness.</p>
 criterion.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">loo_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span><span class="va">weather_formula</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">weather_data</span>, method <span class="op">=</span> <span class="st">"QNCV"</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
+<span>  data <span class="op">=</span> <span class="va">weather_points</span>, method <span class="op">=</span> <span class="st">"QNCV"</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>Use gratia’s <code><a href="https://gavinsimpson.github.io/gratia/reference/edf.html" class="external-link">edf()</a></code> to compare the effective degrees of
 freedom of the spatial smooth in each fit. Read the selected smoothing
@@ -194,14 +193,14 @@ coordinate to the interval from 0 to 1.</p>
 <code class="sourceCode R"><span><span class="va">prediction_grid</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/data_slice.html" class="external-link">data_slice</a></span><span class="op">(</span><span class="va">spatial_fit</span>,</span>
 <span>  east_km <span class="op">=</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/evenly.html" class="external-link">evenly</a></span><span class="op">(</span><span class="va">east_km</span>, n <span class="op">=</span> <span class="fl">60</span><span class="op">)</span>,</span>
 <span>  north_km <span class="op">=</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/evenly.html" class="external-link">evenly</a></span><span class="op">(</span><span class="va">north_km</span>, n <span class="op">=</span> <span class="fl">60</span><span class="op">)</span>,</span>
-<span>  elev <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/median.html" class="external-link">median</a></span><span class="op">(</span><span class="va">weather_data</span><span class="op">$</span><span class="va">elev</span><span class="op">)</span></span>
+<span>  elev <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/stats/median.html" class="external-link">median</a></span><span class="op">(</span><span class="va">weather_points</span><span class="op">$</span><span class="va">elev</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">temperature</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted</a></span><span class="op">(</span><span class="va">prediction_grid</span>, <span class="va">spatial_fit</span>,</span>
 <span>  value <span class="op">=</span> <span class="st">"fitted_tmax"</span>, type <span class="op">=</span> <span class="st">"response"</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">outside</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/too_far.html" class="external-link">too_far</a></span><span class="op">(</span></span>
 <span>  <span class="va">temperature</span><span class="op">$</span><span class="va">east_km</span>, <span class="va">temperature</span><span class="op">$</span><span class="va">north_km</span>,</span>
-<span>  <span class="va">weather_data</span><span class="op">$</span><span class="va">east_km</span>, <span class="va">weather_data</span><span class="op">$</span><span class="va">north_km</span>, dist <span class="op">=</span> <span class="fl">0.1</span></span>
+<span>  <span class="va">weather_points</span><span class="op">$</span><span class="va">east_km</span>, <span class="va">weather_points</span><span class="op">$</span><span class="va">north_km</span>, dist <span class="op">=</span> <span class="fl">0.1</span></span>
 <span><span class="op">)</span></span>
 <span><span class="va">temperature</span><span class="op">$</span><span class="va">fitted_tmax</span><span class="op">[</span><span class="va">outside</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="cn">NA_real_</span></span></code></pre></div>
 <p>Map the fitted temperatures with <code>ggplot2</code> and mark the
@@ -211,7 +210,7 @@ maximum temperature.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/ggplot.html" class="external-link">ggplot</a></span><span class="op">(</span><span class="va">temperature</span>, <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span><span class="va">east_km</span>, <span class="va">north_km</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_tile.html" class="external-link">geom_raster</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>fill <span class="op">=</span> <span class="va">fitted_tmax</span><span class="op">)</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_contour.html" class="external-link">geom_contour</a></span><span class="op">(</span><span class="fu"><a href="https://ggplot2.tidyverse.org/reference/aes.html" class="external-link">aes</a></span><span class="op">(</span>z <span class="op">=</span> <span class="va">fitted_tmax</span><span class="op">)</span>, colour <span class="op">=</span> <span class="st">"white"</span>, alpha <span class="op">=</span> <span class="fl">0.65</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">+</span></span>
-<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">weather_data</span>, shape <span class="op">=</span> <span class="fl">21</span>, size <span class="op">=</span> <span class="fl">1.6</span>, fill <span class="op">=</span> <span class="st">"white"</span><span class="op">)</span> <span class="op">+</span></span>
+<span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/geom_point.html" class="external-link">geom_point</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">weather_points</span>, shape <span class="op">=</span> <span class="fl">21</span>, size <span class="op">=</span> <span class="fl">1.6</span>, fill <span class="op">=</span> <span class="st">"white"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/scale_viridis.html" class="external-link">scale_fill_viridis_c</a></span><span class="op">(</span>na.value <span class="op">=</span> <span class="st">"transparent"</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/coord_fixed.html" class="external-link">coord_equal</a></span><span class="op">(</span><span class="op">)</span> <span class="op">+</span></span>
 <span>  <span class="fu"><a href="https://ggplot2.tidyverse.org/reference/labs.html" class="external-link">labs</a></span><span class="op">(</span>x <span class="op">=</span> <span class="st">"Easting (km)"</span>, y <span class="op">=</span> <span class="st">"Northing (km)"</span>, fill <span class="op">=</span> <span class="st">"Fitted maximum\ntemperature (°C)"</span><span class="op">)</span> <span class="op">+</span></span>
@@ -276,7 +275,7 @@ training. The <code>n_buffer</code> column counts observations left out
 of training solely because of this buffer.</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">buffered</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/buffer_folds.html">buffer_folds</a></span><span class="op">(</span></span>
-<span>  <span class="va">blocks</span>, spatial <span class="op">=</span> <span class="fu"><a href="../reference/spatial_window.html">spatial_window</a></span><span class="op">(</span><span class="fu"><a href="https://r-quantities.github.io/units/reference/units.html" class="external-link">set_units</a></span><span class="op">(</span><span class="fl">100</span>, <span class="st">"m"</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="va">blocks</span>, <span class="va">sites</span>, spatial <span class="op">=</span> <span class="fu"><a href="../reference/spatial_window.html">spatial_window</a></span><span class="op">(</span><span class="fu"><a href="https://r-quantities.github.io/units/reference/units.html" class="external-link">set_units</a></span><span class="op">(</span><span class="fl">100</span>, <span class="st">"m"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://tibble.tidyverse.org/reference/as_tibble.html" class="external-link">as_tibble</a></span><span class="op">(</span><span class="va">buffered</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 5 × 6</span></span></span>
@@ -371,8 +370,7 @@ will use a cubble to keep the measurements linked to their station
 locations.</p>
 <p>Keep the records from 12 to 18 January 2018 at the stations used in
 the spatial fit. The model uses <code>day</code> to track time within
-the week. Give each measurement a unique identifier so
-<code><a href="../reference/as_nei.html">as_nei()</a></code> can check the model’s row order.</p>
+the week.</p>
 <div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">station_locations</span> <span class="op">&lt;-</span> <span class="va">weather_points</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span>, <span class="st">"elev"</span>, <span class="st">"east_km"</span>, <span class="st">"north_km"</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="va">daily_temperatures</span> <span class="op">&lt;-</span> <span class="va">historical_tmax</span> <span class="op">|&gt;</span></span>
@@ -383,7 +381,7 @@ the week. Give each measurement a unique identifier so
 <span>    <span class="fu"><a href="https://dplyr.tidyverse.org/reference/between.html" class="external-link">between</a></span><span class="op">(</span><span class="va">date</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">"2018-01-12"</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="st">"2018-01-18"</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>    <span class="fu"><a href="https://rdrr.io/r/base/is.finite.html" class="external-link">is.finite</a></span><span class="op">(</span><span class="va">tmax</span><span class="op">)</span></span>
 <span>  <span class="op">)</span> <span class="op">|&gt;</span></span>
-<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>day <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">date</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">date</span><span class="op">)</span><span class="op">)</span>, record_id <span class="op">=</span> <span class="fu"><a href="https://dplyr.tidyverse.org/reference/row_number.html" class="external-link">row_number</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span>  <span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>day <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">date</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">date</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>Use each station’s <code>id</code> to link the daily measurements to
 the projected locations. Set <code>date</code> as the time index.</p>
 <div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
@@ -397,17 +395,17 @@ the target, then scores the target measurement alone.</p>
 <div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">cube_folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/neighbourhoods.html">neighbourhoods</a></span><span class="op">(</span></span>
 <span>  <span class="va">cube</span>, spatial <span class="op">=</span> <span class="va">weather_window</span>, temporal <span class="op">=</span> <span class="va">day_window</span>,</span>
-<span>  combine <span class="op">=</span> <span class="st">"intersection"</span>, id <span class="op">=</span> <span class="va">record_id</span></span>
+<span>  combine <span class="op">=</span> <span class="st">"intersection"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
-<p>Use <code><a href="../reference/fold_data.html">fold_data()</a></code> to get one row per station and date in
-the order expected by <code><a href="../reference/as_nei.html">as_nei()</a></code>. Fit a GAM with the same
-elevation and spatial terms as before, plus a smooth for changes in
+<p>Supply the original cubble to <code><a href="../reference/fold_data.html">fold_data()</a></code> to get one row
+per station and date in the order used by the folds. Fit a GAM with the
+same elevation and spatial terms as before, plus a smooth for changes in
 temperature over the week across the region. Use the joint
 neighbourhoods to select smoothness for the spatial surface and the time
 trend.</p>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">cube_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">cube_folds</span><span class="op">)</span></span>
-<span><span class="va">cube_nei</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">cube_folds</span>, data <span class="op">=</span> <span class="va">cube_data</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">cube_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">cube_folds</span>, <span class="va">cube</span><span class="op">)</span></span>
+<span><span class="va">cube_nei</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">cube_folds</span><span class="op">)</span></span>
 <span><span class="va">cube_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/gam.html" class="external-link">gam</a></span><span class="op">(</span></span>
 <span>  <span class="va">tmax</span> <span class="op">~</span> <span class="va">elev</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">east_km</span>, <span class="va">north_km</span>, k <span class="op">=</span> <span class="fl">20</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">day</span>, k <span class="op">=</span> <span class="fl">7</span><span class="op">)</span>,</span>
 <span>  data <span class="op">=</span> <span class="va">cube_data</span>, method <span class="op">=</span> <span class="st">"QNCV"</span>, nei <span class="op">=</span> <span class="va">cube_nei</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>

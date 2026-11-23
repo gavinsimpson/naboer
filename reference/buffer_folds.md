@@ -9,6 +9,7 @@ observations.
 ``` r
 buffer_folds(
   x,
+  data,
   spatial = NULL,
   temporal = NULL,
   phylogenetic = NULL,
@@ -24,6 +25,11 @@ buffer_folds(
 - x:
 
   A `naboer_folds` object.
+
+- data:
+
+  The observation data used to construct the folds, in their original
+  row order.
 
 - spatial:
 

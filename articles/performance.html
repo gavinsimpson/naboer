@@ -88,10 +88,17 @@
 <span><span class="kw">if</span> <span class="op">(</span><span class="va">have_gratia</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="st"><a href="https://gavinsimpson.github.io/gratia/" class="external-link">"gratia"</a></span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<p>Fold objects store the data, the observations to assess and the
-observations to omit from training. Observations used for training are
-called the analysis set. <code>naboer</code> works out that set when you
-ask for it by taking the observations that remain after omission.</p>
+<p>Fold objects store the observation count and record which rows to
+assess and which to omit from training. The analysis set contains the
+rows available for fitting. <code><a href="../reference/assessment_indices.html">analysis_indices()</a></code> returns that
+set by removing each fold’s omission set from the full set of rows.</p>
+<p>Keep the observation table separately and use it in the same row
+order when fitting with mgcv.
+<code>as_nei(folds, data = model_data)</code> checks the row count if
+you supply modelling data. Pass the original observations to
+<code><a href="../reference/as_rset.html">as_rset()</a></code> or <code><a href="../reference/buffer_folds.html">buffer_folds()</a></code>. With a nested
+cubble, <code>fold_data(folds, cube)</code> unfolds the observations in
+the order used by the fold indices.</p>
 <p>To save memory, a time window can be stored as start and end
 positions in a shared time ordering. Folds with the same set of
 neighbours can share that set, for example when several observations
@@ -168,9 +175,9 @@ assessment and omission, or call <code><a href="../reference/assessment_indices.
 <code><a href="../reference/assessment_indices.html">omission_indices()</a></code> or <code><a href="../reference/assessment_indices.html">analysis_indices()</a></code>
 directly. Supply <code>folds</code> to limit the result to the folds you
 need. Asking for every fold can use much more memory than storing the
-design. With <code>ggplot2</code> loaded, you can plot the observation
-roles in a single fold with
-<code>autoplot(co2_folds, folds = 1)</code>.</p>
+design. With <code>ggplot2</code> loaded, plot observation roles against
+row numbers with <code>autoplot(co2_folds, folds = 1)</code>. Add
+<code>data = co2_monthly</code> to plot against dates.</p>
 </div>
 <div class="section level2">
 <h2 id="exporting-to-mgcv">Exporting to mgcv<a class="anchor" aria-label="anchor" href="#exporting-to-mgcv"></a>
@@ -183,13 +190,11 @@ still produce a large export. <code><a href="../reference/as_nei.html">as_nei()<
 index limit and estimates the size of these vectors before creating
 them.</p>
 <p>Choose 120 folds at random for smoothness selection. Here there is
-one fold per row, so draw the fold numbers from the row count. Use the
-data returned by <code><a href="../reference/fold_data.html">fold_data()</a></code> to keep the model rows aligned
-with the fold indices.</p>
+one fold per row, so draw the fold numbers from the row count of
+<code>co2_monthly</code>.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">co2_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fold_data.html">fold_data</a></span><span class="op">(</span><span class="va">co2_folds</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
-<span><span class="va">sampled_folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample.int</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">co2_data</span><span class="op">)</span>, size <span class="op">=</span> <span class="fl">120</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">42</span><span class="op">)</span></span>
+<span><span class="va">sampled_folds</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sort.html" class="external-link">sort</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample.int</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">co2_monthly</span><span class="op">)</span>, size <span class="op">=</span> <span class="fl">120</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>Pass the selected fold numbers to <code><a href="../reference/as_nei.html">as_nei()</a></code> as
 <code>sample</code>. Set a memory limit of 100 MiB for this export, then
 count the entries in each vector. The default limit is 1 GiB and can be
@@ -197,7 +202,7 @@ changed with the <code>naboer.max_bytes</code> option or for one call
 with <code>max_bytes</code>.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">co2_nei</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/as_nei.html">as_nei</a></span><span class="op">(</span><span class="va">co2_folds</span>,</span>
-<span>  sample <span class="op">=</span> <span class="va">sampled_folds</span>, data <span class="op">=</span> <span class="va">co2_data</span>, max_bytes <span class="op">=</span> <span class="fl">100</span> <span class="op">*</span> <span class="fl">1024</span><span class="op">^</span><span class="fl">2</span></span>
+<span>  sample <span class="op">=</span> <span class="va">sampled_folds</span>, max_bytes <span class="op">=</span> <span class="fl">100</span> <span class="op">*</span> <span class="fl">1024</span><span class="op">^</span><span class="fl">2</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/lengths.html" class="external-link">lengths</a></span><span class="op">(</span><span class="va">co2_nei</span><span class="op">)</span></span>
 <span><span class="co">#&gt;      a     ma      d     md sample </span></span>
@@ -233,13 +238,13 @@ observations.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">co2_fit</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/bam.html" class="external-link">bam</a></span><span class="op">(</span></span>
 <span>  <span class="va">concentration</span> <span class="op">~</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">year</span>, bs <span class="op">=</span> <span class="st">"cr"</span>, k <span class="op">=</span> <span class="fl">20</span><span class="op">)</span> <span class="op">+</span> <span class="fu"><a href="https://rdrr.io/pkg/mgcv/man/s.html" class="external-link">s</a></span><span class="op">(</span><span class="va">month</span>, bs <span class="op">=</span> <span class="st">"cc"</span>, k <span class="op">=</span> <span class="fl">12</span><span class="op">)</span>,</span>
-<span>  data <span class="op">=</span> <span class="va">co2_data</span>, knots <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>month <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">12.5</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  data <span class="op">=</span> <span class="va">co2_monthly</span>, knots <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>month <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">12.5</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"NCV"</span>, nei <span class="op">=</span> <span class="va">co2_nei</span>, discrete <span class="op">=</span> <span class="cn">TRUE</span>, na.action <span class="op">=</span> <span class="va">na.fail</span></span>
 <span><span class="op">)</span></span></code></pre></div>
 <p>Use gratia’s <code><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted()</a></code> to put the fitted
 concentrations alongside the observations.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">co2_curves</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted</a></span><span class="op">(</span><span class="va">co2_data</span>, <span class="va">co2_fit</span>, value <span class="op">=</span> <span class="st">"fitted_ppm"</span><span class="op">)</span></span></code></pre></div>
+<code class="sourceCode R"><span><span class="va">co2_curves</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://gavinsimpson.github.io/gratia/reference/add_fitted.html" class="external-link">add_fitted</a></span><span class="op">(</span><span class="va">co2_monthly</span>, <span class="va">co2_fit</span>, value <span class="op">=</span> <span class="st">"fitted_ppm"</span><span class="op">)</span></span></code></pre></div>
 <p>Plot the fitted concentrations as a blue line and the observations as
 grey points. The line shows the annual cycle superimposed on the rise in
 carbon dioxide over the record.</p>
@@ -262,13 +267,14 @@ documentation for <code>bam()</code></a>)</p>
 <div class="section level2">
 <h2 id="exporting-to-rsample">Exporting to rsample<a class="anchor" aria-label="anchor" href="#exporting-to-rsample"></a>
 </h2>
-<p><code><a href="../reference/as_rset.html">as_rset()</a></code> exports the training and assessment row
-numbers for each split. In a leave-one-out design with one million rows,
-every split has 999,999 training rows. The training indices alone would
-require about 4 TB of memory. <code><a href="../reference/as_rset.html">as_rset()</a></code> checks its own
-<code>max_bytes</code> limit, which also defaults to 1 GiB. The estimate
-covers the index vectors. The <code>rsample</code> split objects and
-data need additional memory.</p>
+<p><code><a href="../reference/as_rset.html">as_rset()</a></code> takes the original observations and exports
+the training and assessment row numbers for each split. In a
+leave-one-out design with one million rows, every split has 999,999
+training rows. The training indices alone would require about 4 TB of
+memory. <code><a href="../reference/as_rset.html">as_rset()</a></code> checks its own <code>max_bytes</code>
+limit, which also defaults to 1 GiB. The estimate covers the index
+vectors. The <code>rsample</code> split objects and data need additional
+memory.</p>
 </div>
 <div class="section level2">
 <h2 id="reproducible-benchmarks">Reproducible benchmarks<a class="anchor" aria-label="anchor" href="#reproducible-benchmarks"></a>

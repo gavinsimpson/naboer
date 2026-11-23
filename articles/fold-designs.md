@@ -38,15 +38,15 @@ rows 4 and
 [`as_nei()`](https://gavinsimpson.github.io/naboer/reference/as_nei.md)
 packs the rows left out of fitting into `a` and the rows scored into
 `d`, one fold after another. In each vector the numbers **inside the
-boxes** are row numbers in `fold_data(folds)`. The numbers on the
-horizontal axis are **positions in the packed vectors**. `ma` and `md`
-give the last position for each fold in `a` and `d`, respectively. Each
-fold starts one position after the previous endpoint, with the first
-fold starting at position 1.
+boxes** are row numbers in `observations`. The numbers on the horizontal
+axis are **positions in the packed vectors**. `ma` and `md` give the
+last position for each fold in `a` and `d`, respectively. Each fold
+starts one position after the previous endpoint, with the first fold
+starting at position 1.
 
 ``` r
 
-nei <- as_nei(folds, data = fold_data(folds))
+nei <- as_nei(folds)
 ```
 
 ![An omission strip a contains rows 2, 3, 4 for fold 1 and rows 3, 4, 5,
@@ -100,8 +100,8 @@ plot_fold_rows <- function(points, x_label) {
 }
 
 basic_points <- dplyr::bind_rows(
-  fold_points(loo, 5L, "Leave-one-out"),
-  fold_points(random, 1L, "Random three-fold")
+  fold_points(loo, times, 5L, "Leave-one-out"),
+  fold_points(random, times, 1L, "Random three-fold")
 )
 plot_fold_rows(basic_points, "Observation")
 ```
@@ -126,8 +126,8 @@ time_neighbours <- neighbourhoods(times,
 time_blocks <- temporal_folds(times, index = date, size = time_span(3, "days"))
 
 time_points <- dplyr::bind_rows(
-  fold_points(time_neighbours, 5L, "Focal neighbourhood"),
-  fold_points(time_blocks, 2L, "Contiguous block")
+  fold_points(time_neighbours, times, 5L, "Focal neighbourhood"),
+  fold_points(time_blocks, times, 2L, "Contiguous block")
 )
 plot_fold_rows(time_points, "Day")
 ```
@@ -160,8 +160,8 @@ sliding <- forecast_folds(times,
 )
 
 forecast_points <- dplyr::bind_rows(
-  fold_points(expanding, 1L, "Expanding window"),
-  fold_points(sliding, 1L, "Sliding window")
+  fold_points(expanding, times, 1L, "Expanding window"),
+  fold_points(sliding, times, 1L, "Sliding window")
 )
 plot_fold_rows(forecast_points, "Day") +
   annotate("segment", x = 6, xend = 6, y = 2.13, yend = 2.36,
@@ -201,7 +201,7 @@ site_window <- spatial_window(units::set_units(radius, "m"))
 spatial_blocks <- spatial_folds(sites,
   size = units::set_units(block_width, "m"), origin = c(0, 0)
 )
-spatial_buffer <- buffer_folds(spatial_blocks, spatial = site_window)
+spatial_buffer <- buffer_folds(spatial_blocks, sites, spatial = site_window)
 spatial_focal <- neighbourhoods(sites, spatial = site_window)
 ```
 
@@ -209,9 +209,9 @@ spatial_focal <- neighbourhoods(sites, spatial = site_window)
 
 spatial_panels <- c("Spatial block", "Buffered spatial block", "Focal spatial window")
 spatial_points <- dplyr::bind_rows(
-  fold_points(spatial_blocks, 1L, spatial_panels[1]),
-  fold_points(spatial_buffer, 1L, spatial_panels[2]),
-  fold_points(spatial_focal, 3L, spatial_panels[3])
+  fold_points(spatial_blocks, sites, 1L, spatial_panels[1]),
+  fold_points(spatial_buffer, sites, 1L, spatial_panels[2]),
+  fold_points(spatial_focal, sites, 3L, spatial_panels[3])
 )
 spatial_points$panel <- factor(spatial_points$panel, levels = spatial_panels)
 
@@ -300,8 +300,8 @@ near_in_either <- neighbourhoods(station_days,
 
 window_panels <- c("Intersection", "Union")
 window_points <- dplyr::bind_rows(
-  fold_points(near_in_both, focal_row, window_panels[1]),
-  fold_points(near_in_either, focal_row, window_panels[2])
+  fold_points(near_in_both, station_days, focal_row, window_panels[1]),
+  fold_points(near_in_either, station_days, focal_row, window_panels[2])
 )
 window_points$panel <- factor(window_points$panel, levels = window_panels)
 
@@ -361,7 +361,7 @@ block_points <- dplyr::bind_rows(lapply(names(block_modes), function(mode) {
   has_focal_row <- vapply(assessment_indices(design), function(rows) {
     focal_row %in% rows
   }, logical(1))
-  fold_points(design, which(has_focal_row), block_modes[[mode]])
+  fold_points(design, station_days, which(has_focal_row), block_modes[[mode]])
 }))
 block_points$panel <- factor(block_points$panel, levels = block_modes)
 ```
@@ -417,7 +417,7 @@ visits <- tibble(
 )
 site_folds <- group_folds(visits, group = site)
 
-fold_points(site_folds, 1:2, c("Hold out site A", "Hold out site B")) |>
+fold_points(site_folds, visits, 1:2, c("Hold out site A", "Hold out site B")) |>
   ggplot(aes(visit, site)) +
   geom_line(aes(group = site), colour = "grey82") +
   geom_point(aes(colour = role, shape = role), size = 3) +
@@ -460,7 +460,7 @@ outlines <- do.call(rbind, lapply(seq_along(climate_groups), function(i) {
   transform(points[hull, ], cluster = i)
 }))
 
-fold_points(climate_folds, selected_clusters, c("Hold out cool, wet sites", "Hold out warm sites")) |>
+fold_points(climate_folds, climate, selected_clusters, c("Hold out cool, wet sites", "Hold out warm sites")) |>
   ggplot(aes(temperature, moisture)) +
   geom_polygon(
     aes(group = cluster), data = outlines, fill = NA, colour = "grey82"
@@ -497,8 +497,8 @@ near_taxon <- neighbourhoods(
 
 tip_panels <- c("Clade holdout", "Focal oak neighbourhood")
 tips <- rbind(
-  fold_points(clade_folds, 1, tip_panels[1]),
-  fold_points(near_taxon, 1, tip_panels[2])
+  fold_points(clade_folds, taxa, 1, tip_panels[1]),
+  fold_points(near_taxon, taxa, 1, tip_panels[2])
 )
 tips$panel <- factor(tips$panel, levels = tip_panels)
 

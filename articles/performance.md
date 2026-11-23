@@ -18,10 +18,22 @@ if (have_gratia) {
 }
 ```
 
-Fold objects store the data, the observations to assess and the
-observations to omit from training. Observations used for training are
-called the analysis set. `naboer` works out that set when you ask for it
-by taking the observations that remain after omission.
+Fold objects store the observation count and record which rows to assess
+and which to omit from training. The analysis set contains the rows
+available for fitting.
+[`analysis_indices()`](https://gavinsimpson.github.io/naboer/reference/assessment_indices.md)
+returns that set by removing each fold’s omission set from the full set
+of rows.
+
+Keep the observation table separately and use it in the same row order
+when fitting with mgcv. `as_nei(folds, data = model_data)` checks the
+row count if you supply modelling data. Pass the original observations
+to
+[`as_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md)
+or
+[`buffer_folds()`](https://gavinsimpson.github.io/naboer/reference/buffer_folds.md).
+With a nested cubble, `fold_data(folds, cube)` unfolds the observations
+in the order used by the fold indices.
 
 To save memory, a time window can be stored as start and end positions
 in a shared time ordering. Folds with the same set of neighbours can
@@ -118,8 +130,9 @@ or
 [`analysis_indices()`](https://gavinsimpson.github.io/naboer/reference/assessment_indices.md)
 directly. Supply `folds` to limit the result to the folds you need.
 Asking for every fold can use much more memory than storing the design.
-With `ggplot2` loaded, you can plot the observation roles in a single
-fold with `autoplot(co2_folds, folds = 1)`.
+With `ggplot2` loaded, plot observation roles against row numbers with
+`autoplot(co2_folds, folds = 1)`. Add `data = co2_monthly` to plot
+against dates.
 
 ## Exporting to mgcv
 
@@ -133,16 +146,13 @@ checks the integer index limit and estimates the size of these vectors
 before creating them.
 
 Choose 120 folds at random for smoothness selection. Here there is one
-fold per row, so draw the fold numbers from the row count. Use the data
-returned by
-[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md)
-to keep the model rows aligned with the fold indices.
+fold per row, so draw the fold numbers from the row count of
+`co2_monthly`.
 
 ``` r
 
-co2_data <- fold_data(co2_folds)
 set.seed(42)
-sampled_folds <- sort(sample.int(nrow(co2_data), size = 120))
+sampled_folds <- sort(sample.int(nrow(co2_monthly), size = 120))
 ```
 
 Pass the selected fold numbers to
@@ -155,7 +165,7 @@ changed with the `naboer.max_bytes` option or for one call with
 ``` r
 
 co2_nei <- as_nei(co2_folds,
-  sample = sampled_folds, data = co2_data, max_bytes = 100 * 1024^2
+  sample = sampled_folds, max_bytes = 100 * 1024^2
 )
 lengths(co2_nei)
 #>      a     ma      d     md sample 
@@ -194,7 +204,7 @@ all 468 observations.
 
 co2_fit <- bam(
   concentration ~ s(year, bs = "cr", k = 20) + s(month, bs = "cc", k = 12),
-  data = co2_data, knots = list(month = c(0.5, 12.5)),
+  data = co2_monthly, knots = list(month = c(0.5, 12.5)),
   method = "NCV", nei = co2_nei, discrete = TRUE, na.action = na.fail
 )
 ```
@@ -205,7 +215,7 @@ to put the fitted concentrations alongside the observations.
 
 ``` r
 
-co2_curves <- add_fitted(co2_data, co2_fit, value = "fitted_ppm")
+co2_curves <- add_fitted(co2_monthly, co2_fit, value = "fitted_ppm")
 ```
 
 Plot the fitted concentrations as a blue line and the observations as
@@ -238,10 +248,10 @@ documentation for
 ## Exporting to rsample
 
 [`as_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md)
-exports the training and assessment row numbers for each split. In a
-leave-one-out design with one million rows, every split has 999,999
-training rows. The training indices alone would require about 4 TB of
-memory.
+takes the original observations and exports the training and assessment
+row numbers for each split. In a leave-one-out design with one million
+rows, every split has 999,999 training rows. The training indices alone
+would require about 4 TB of memory.
 [`as_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md)
 checks its own `max_bytes` limit, which also defaults to 1 GiB. The
 estimate covers the index vectors. The `rsample` split objects and data

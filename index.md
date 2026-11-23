@@ -36,10 +36,16 @@ nei <- as_nei(folds)
 
 fit <- mgcv::gam(
   response ~ s(time, k = 8) + site,
-  data = fold_data(folds), method = "NCV", nei = nei,
+  data = observations, method = "NCV", nei = nei,
   na.action = stats::na.fail
 )
 ```
+
+Keep the observation table separately from the fold object. For model
+fitting, use the same observations in the same row order as the folds.
+If you supply `data` to
+[`as_nei()`](https://gavinsimpson.github.io/naboer/reference/as_nei.md),
+it checks the row count.
 
 Numeric time indices are seconds. For dates, use `Date`/`POSIXct` with
 elapsed or calendar spans. `time_span(1, "months", "calendar")` follows
@@ -79,6 +85,9 @@ space_time <- observations |>
   )
 ```
 
+Use `fold_data(space_time, observations)` to unfold the cubble into the
+row order used by the folds for modelling.
+
 Supply both window arguments and explicitly choose
 `combine = "intersection"` or `"union"` for spatiotemporal
 neighbourhoods. Keys identify stations or series; `.by` defines
@@ -102,6 +111,11 @@ Inspect with [`summary()`](https://rdrr.io/r/base/summary.html),
 [`tibble::as_tibble()`](https://tibble.tidyverse.org/reference/as_tibble.html)
 and
 [`ggplot2::autoplot()`](https://ggplot2.tidyverse.org/reference/autoplot.html).
+Supply `data` to `autoplot()` to show locations or times. By default the
+plot shows observation positions. Pass the original observations to
+[`buffer_folds()`](https://gavinsimpson.github.io/naboer/reference/buffer_folds.md)
+and
+[`as_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md).
 Large memberships remain compressed until requested. Export estimates
 packed size and defaults to a 1 GiB limit, controlled by `max_bytes` or
 `naboer.max_bytes`. Million-observation sparse designs are benchmarked;

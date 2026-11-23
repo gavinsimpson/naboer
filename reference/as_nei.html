@@ -94,8 +94,9 @@ option <code>naboer.max_bytes</code>, or 1 GiB. Use <code>Inf</code> to disable 
 
 
 <dt id="arg-data">data<a class="anchor" aria-label="anchor" href="#arg-data"></a></dt>
-<dd><p>Optional data used for alignment checking. Supply unchanged
-canonical data, or data containing the original unique identifier column.</p></dd>
+<dd><p>Optional modelling data for a row-count check. Supply the data
+in the observation order used to build the folds. For cubbles, use the
+unfolded observations returned by <code><a href="fold_data.html">fold_data()</a></code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

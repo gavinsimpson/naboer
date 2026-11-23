@@ -44,8 +44,10 @@ as_nei(
 
 - data:
 
-  Optional data used for alignment checking. Supply unchanged canonical
-  data, or data containing the original unique identifier column.
+  Optional modelling data for a row-count check. Supply the data in the
+  observation order used to build the folds. For cubbles, use the
+  unfolded observations returned by
+  [`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md).
 
 ## Value
 

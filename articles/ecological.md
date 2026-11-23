@@ -79,10 +79,9 @@ held-out plant. The resulting model uses all 12 plants.
 
 ``` r
 
-plant_data <- fold_data(plant_folds)
-plant_nei <- as_nei(plant_folds, data = plant_data)
+plant_nei <- as_nei(plant_folds)
 plant_fit <- gam(uptake ~ condition + s(conc, by = condition, k = 5),
-  data = plant_data, method = "QNCV", nei = plant_nei, na.action = na.fail
+  data = grass, method = "QNCV", nei = plant_nei, na.action = na.fail
 )
 ```
 
@@ -94,9 +93,9 @@ concentrations for each origin and treatment.
 ``` r
 
 plant_grid <- expand.grid(
-  conc = seq(min(plant_data$conc), max(plant_data$conc), length.out = 100),
-  Type = levels(plant_data$Type),
-  Treatment = levels(plant_data$Treatment)
+  conc = seq(min(grass$conc), max(grass$conc), length.out = 100),
+  Type = levels(grass$Type),
+  Treatment = levels(grass$Treatment)
 )
 plant_grid$condition <- with(plant_grid, interaction(Type, Treatment))
 plant_curves <- add_fitted(plant_grid, plant_fit, value = "fitted_uptake")
@@ -108,7 +107,7 @@ especially for plants from Mississippi.
 
 ``` r
 
-ggplot(plant_data, aes(x = conc, colour = Treatment)) +
+ggplot(grass, aes(x = conc, colour = Treatment)) +
   geom_point(aes(y = uptake), alpha = 0.55) +
   geom_line(data = plant_curves, aes(y = fitted_uptake), linewidth = 0.9) +
   facet_wrap(vars(Type)) +
@@ -378,7 +377,7 @@ itself.
 ``` r
 
 buffered <- buffer_folds(
-  leave_one_out,
+  leave_one_out, observations,
   temporal = temporal_window(time_span(1, "days")),
   key = station, index = date, within = "key"
 )
@@ -400,15 +399,16 @@ analysis_indices(buffered, folds = 2)
 #>  [1]  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
 ```
 
-The next examples require the optional **rsample** package. Export with
+The next examples require the optional **rsample** package. Pass the
+original observations to
 [`as_rset()`](https://gavinsimpson.github.io/naboer/reference/as_rset.md)
-to refit the model on each analysis set using rsample. The exported
-resamples store the analysis and assessment sets separately. Rows
-excluded by the buffer alone belong to neither set.
+to refit the model on each analysis set. The exported resamples store
+the analysis and assessment sets separately. Rows excluded by the buffer
+alone belong to neither set.
 
 ``` r
 
-resamples <- as_rset(buffered)
+resamples <- as_rset(buffered, observations)
 ```
 
 Import with
@@ -441,10 +441,10 @@ represented by this design.
 
 Create resamples on individual observation rows. With a nested spatial
 cubble, use the cubble package’s `face_temporal()` to switch to one row
-per observation, or resample the observation table returned by
-[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md).
-If a row represents an entire station, its index cannot identify a
-single observation after expansion.
+per observation, or supply the folds and original cubble to
+[`fold_data()`](https://gavinsimpson.github.io/naboer/reference/fold_data.md)
+and resample the resulting table. If a row represents an entire station,
+its index cannot identify a single observation after expansion.
 
 Exporting to rsample can take much more memory than storing a naboer
 design. For example, leave-one-out stores almost all row indices in each
@@ -457,9 +457,9 @@ before creating them. The default limit comes from
 overhead.
 
 For neighbourhood cross-validation in mgcv, pass `as_nei(buffered)` as
-`nei` and fit to `fold_data(buffered)`. Prepare complete modelling data
-before constructing folds and use `na.action = na.fail` when fitting.
-Check whether the approximation is accurate for your model and omission
-size. See [Assessment, omission and prediction
+`nei` and fit to the original `observations`. Prepare complete modelling
+data before constructing folds and use `na.action = na.fail` when
+fitting. Check whether the approximation is accurate for your model and
+omission size. See [Assessment, omission and prediction
 targets](https://gavinsimpson.github.io/naboer/articles/naboer.md) for
 an example.

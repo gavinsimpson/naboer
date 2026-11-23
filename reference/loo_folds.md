@@ -23,7 +23,8 @@ loo_folds(data, .by = NULL, id = NULL)
 
 - id:
 
-  Optional tidy selection of a unique observation identifier.
+  Optional tidy selection of a unique observation identifier to record
+  as column metadata.
 
 ## Value
 
